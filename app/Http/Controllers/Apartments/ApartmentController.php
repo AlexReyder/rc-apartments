@@ -46,7 +46,7 @@ class ApartmentController extends Controller
                 'sold' => $flat->sold,
             ]);
 
-        return Inertia::render('apartments/index', [
+        return Inertia::render('Apartments/Index', [
             'filters' => [
                 'search' => $search,
                 'perPage' => $perPage,
@@ -65,7 +65,7 @@ class ApartmentController extends Controller
             ->where('number', $parts['number'])
             ->firstOrFail();
 
-        return Inertia::render('apartments/show', [
+        return Inertia::render('Apartments/Show', [
             'flat' => [
                 'id' => $flat->id,
                 'slug' => $flat->slug,

@@ -21,7 +21,7 @@ class FlatController extends Controller
             $perPage = 10;
         }
 
-        if (! in_array($sortBy, ['id', 'building', 'floor', 'number', 'rooms_number', 'price'], true)) {
+        if (! in_array($sortBy, ['id', 'building', 'floor', 'number', 'rooms_number', 'square', 'price', 'sold'], true)) {
             $sortBy = 'id';
         }
 
