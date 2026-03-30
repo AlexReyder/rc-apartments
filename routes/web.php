@@ -25,3 +25,5 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/flats', [FlatController::class, 'index'])->name('flats.index');
 });
+
+require __DIR__.'/auth.php';
