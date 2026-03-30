@@ -1,17 +1,25 @@
 <?php
 
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Apartments\ApartmentController;
+use App\Http\Controllers\Panorama\PanoramaController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 Route::get('/', function () {
-    return Inertia::render('welcome');
-})->name('home');
-
-Route::middleware(['auth'])->group(function () {
-    Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
-    })->name('dashboard');
+    abort(404);
 });
 
-require __DIR__.'/settings.php';
-require __DIR__.'/auth.php';
+Route::prefix('apartments')->name('apartments.')->group(function () {
+    Route::get('/', [ApartmentController::class, 'index'])->name('index');
+    Route::get('/{flat:slug}', [ApartmentController::class, 'show'])->name('show');
+});
+
+Route::prefix('3dpanorama')->name('panorama.')->group(function () {
+    Route::get('/', [PanoramaController::class, 'buildings'])->name('buildings');
+    Route::get('/{building:slug}', [PanoramaController::class, 'floors'])->name('floors');
+    Route::get('/{building:slug}/{floor:slug}', [PanoramaController::class, 'plan'])->name('plan');
+});
+
+Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+});
