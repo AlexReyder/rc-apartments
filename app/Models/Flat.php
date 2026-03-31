@@ -93,4 +93,25 @@ class Flat extends Model
             }
         });
     }
+
+    public function scopeApplyAttributeFilters(
+        Builder $query,
+        array $buildings = [],
+        array $floors = [],
+        array $rooms = [],
+    ): Builder {
+        if ($buildings !== []) {
+            $query->whereIn('building', $buildings);
+        }
+
+        if ($floors !== []) {
+            $query->whereIn('floor', $floors);
+        }
+
+        if ($rooms !== []) {
+            $query->whereIn('rooms_number', $rooms);
+        }
+
+        return $query;
+    }
 }

@@ -17,7 +17,11 @@ class FlatController extends Controller
         $sortBy = (string) $request->string('sortBy', 'id');
         $sortDirection = (string) $request->string('sortDirection', 'desc');
 
-        if (! in_array($perPage, [10, 20, 30, 50], true)) {
+        $building = $this->sanitizeIntegerList($request->input('building', []));
+        $floor = $this->sanitizeIntegerList($request->input('floor', []));
+        $rooms = $this->sanitizeIntegerList($request->input('rooms', []));
+
+        if (! in_array($perPage, [10, 20, 30, 50, 100], true)) {
             $perPage = 10;
         }
 
@@ -41,6 +45,7 @@ class FlatController extends Controller
                 'sold',
             ])
             ->applySearch($search)
+            ->applyAttributeFilters($building, $floor, $rooms)
             ->orderBy($sortBy, $sortDirection)
             ->paginate($perPage)
             ->withQueryString()
@@ -56,14 +61,48 @@ class FlatController extends Controller
                 'sold' => $flat->sold,
             ]);
 
-        return Inertia::render('Admin/Flats/Index', [
+        return Inertia::render('admin/flats/index', [
             'filters' => [
                 'search' => $search,
                 'perPage' => $perPage,
                 'sortBy' => $sortBy,
                 'sortDirection' => $sortDirection,
+                'building' => $building,
+                'floor' => $floor,
+                'rooms' => $rooms,
+            ],
+            'filterOptions' => [
+                'building' => $this->distinctIntegerValues('building'),
+                'floor' => $this->distinctIntegerValues('floor'),
+                'rooms' => $this->distinctIntegerValues('rooms_number'),
             ],
             'flats' => $flats,
         ]);
+    }
+
+    private function distinctIntegerValues(string $column): array
+    {
+        return Flat::query()
+            ->whereNotNull($column)
+            ->distinct()
+            ->orderBy($column)
+            ->pluck($column)
+            ->map(fn ($value) => (int) $value)
+            ->values()
+            ->all();
+    }
+
+    private function sanitizeIntegerList(mixed $values): array
+    {
+        $values = is_array($values) ? $values : [$values];
+
+        return collect($values)
+            ->filter(fn ($value) => $value !== null && $value !== '')
+            ->map(fn ($value) => (int) $value)
+            ->filter(fn (int $value) => $value >= 0)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
     }
 }
