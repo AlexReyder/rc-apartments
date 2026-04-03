@@ -16,6 +16,7 @@ class FlatController extends Controller
         $perPage = (int) $request->integer('perPage', 10);
         $sortBy = (string) $request->string('sortBy', 'id');
         $sortDirection = (string) $request->string('sortDirection', 'desc');
+        $view = (string) $request->string('view', 'table');
 
         $building = $this->sanitizeIntegerList($request->input('building', []));
         $floor = $this->sanitizeIntegerList($request->input('floor', []));
@@ -33,17 +34,12 @@ class FlatController extends Controller
             $sortDirection = 'desc';
         }
 
+        if (! in_array($view, ['table', 'list'], true)) {
+            $view = 'table';
+        }
+
         $flats = Flat::query()
-            ->select([
-                'id',
-                'building',
-                'floor',
-                'number',
-                'rooms_number',
-                'square',
-                'price',
-                'sold',
-            ])
+            ->select('*')
             ->applySearch($search)
             ->applyAttributeFilters($building, $floor, $rooms)
             ->orderBy($sortBy, $sortDirection)
@@ -53,12 +49,15 @@ class FlatController extends Controller
                 'id' => $flat->id,
                 'slug' => $flat->slug,
                 'building' => $flat->building,
+                'entrance' => $flat->entrance_number,
                 'floor' => $flat->floor,
                 'number' => $flat->number,
                 'rooms' => $flat->rooms_number,
                 'square' => $flat->square,
                 'price' => $flat->price,
                 'sold' => $flat->sold,
+                'plan' => $flat->plan,
+                'finishing' => $flat->finishing,
             ]);
 
         return Inertia::render('Admin/Flats/Index', [
@@ -67,6 +66,7 @@ class FlatController extends Controller
                 'perPage' => $perPage,
                 'sortBy' => $sortBy,
                 'sortDirection' => $sortDirection,
+                'view' => $view,
                 'building' => $building,
                 'floor' => $floor,
                 'rooms' => $rooms,

@@ -4,16 +4,19 @@ import {
     Download,
     EyeOff,
     Filter,
+    ImageOff,
+    List,
     MoreVertical,
     Pencil,
     Plus,
     Search,
     Settings2,
+    Table2,
     Trash2,
     Upload,
     X,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -34,15 +37,19 @@ type Flat = {
     id: number;
     slug: string;
     building: number;
+    entrance: number | string | null;
     floor: number;
     number: number;
     rooms: number;
     square: number;
     price: number;
     sold: boolean;
+    plan: string | null;
+    finishing: string | null;
 };
 
 type SortableColumn = 'id' | 'building' | 'floor' | 'number' | 'rooms_number' | 'square' | 'price' | 'sold';
+type ViewMode = 'table' | 'list';
 
 type PaginationLink = {
     url: string | null;
@@ -66,6 +73,7 @@ type Filters = {
     perPage: number;
     sortBy: string;
     sortDirection: 'asc' | 'desc';
+    view: ViewMode;
     building: number[];
     floor: number[];
     rooms: number[];
@@ -96,6 +104,108 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const perPageOptions = [10, 20, 30, 50, 100] as const;
 
+const priceFormatter = new Intl.NumberFormat('ru-RU');
+const squareFormatter = new Intl.NumberFormat('ru-RU', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+});
+
+function getRoomLabel(value: number) {
+    if (value === 0) {
+        return 'Студия';
+    }
+
+    return `${value}-комнатная`;
+}
+
+function getPricePerSquare(price: number, square: number) {
+    if (square <= 0) {
+        return null;
+    }
+
+    return Math.round(price / square);
+}
+
+function FlatPlanPreview({ src, alt }: { src: string | null; alt: string }) {
+    const [hasError, setHasError] = useState(false);
+
+    if (!src || hasError) {
+        return (
+            <div className="flex aspect-[4/3] w-full items-center justify-center rounded-xl border bg-muted/30 text-muted-foreground">
+                <div className="flex flex-col items-center gap-2 text-sm">
+                    <ImageOff className="h-5 w-5" />
+                    <span>Нет плана</span>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="overflow-hidden rounded-xl border bg-white">
+            <img
+                src={src}
+                alt={alt}
+                className="aspect-[4/3] h-full w-full object-contain"
+                loading="lazy"
+                onError={() => setHasError(true)}
+            />
+        </div>
+    );
+}
+
+function FlatActionsDropdown({ flat }: { flat: Flat }) {
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <button
+                    type="button"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label={`Действия для квартиры ${flat.id}`}
+                >
+                    <MoreVertical className="h-4 w-4" />
+                </button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem asChild>
+                    <a href={route('apartments.show', flat.slug)} target="_blank" rel="noreferrer" className="flex items-center gap-2">
+                        <Search className="h-4 w-4" />
+                        Открыть карточку
+                    </a>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
+                <DropdownMenuItem className="gap-2">
+                    <Pencil className="h-4 w-4" />
+                    Редактировать
+                </DropdownMenuItem>
+
+                <DropdownMenuItem className="gap-2">
+                    <EyeOff className="h-4 w-4" />
+                    Скрыть
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
+                <DropdownMenuItem className="gap-2 text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300">
+                    <Trash2 className="h-4 w-4" />
+                    Удалить
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}
+
+function ListMetaItem({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="min-w-0">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+            <div className="mt-1 truncate text-sm font-medium text-foreground">{value}</div>
+        </div>
+    );
+}
+
 export default function AdminFlatsIndex({ filters, filterOptions, flats }: Props) {
     const [searchValue, setSearchValue] = useState(filters.search);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -112,7 +222,7 @@ export default function AdminFlatsIndex({ filters, filterOptions, flats }: Props
 
     useEffect(() => {
         setSelectedIds([]);
-    }, [flats.data]);
+    }, [flats.data, filters.view]);
 
     useEffect(() => {
         if (!filtersOpen) {
@@ -143,6 +253,7 @@ export default function AdminFlatsIndex({ filters, filterOptions, flats }: Props
                 perPage: overrides.perPage ?? filters.perPage,
                 sortBy: overrides.sortBy ?? filters.sortBy,
                 sortDirection: overrides.sortDirection ?? filters.sortDirection,
+                view: overrides.view ?? filters.view,
                 building: overrides.building ?? filters.building,
                 floor: overrides.floor ?? filters.floor,
                 rooms: overrides.rooms ?? filters.rooms,
@@ -156,7 +267,7 @@ export default function AdminFlatsIndex({ filters, filterOptions, flats }: Props
         );
     };
 
-    const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
         navigate({
@@ -247,15 +358,8 @@ export default function AdminFlatsIndex({ filters, filterOptions, flats }: Props
         );
     };
 
-    const priceFormatter = new Intl.NumberFormat('ru-RU');
-    const squareFormatter = new Intl.NumberFormat('ru-RU', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
-    });
-
-    const renderRoomLabel = (value: number) => {
-        return value === 0 ? 'Студия' : `${value} комн.`;
-    };
+    const currentViewIcon =
+        filters.view === 'list' ? <List className="h-4 w-4" /> : <Table2 className="h-4 w-4" />;
 
     return (
         <AdminLayout title="Квартиры" breadcrumbs={breadcrumbs}>
@@ -379,7 +483,7 @@ export default function AdminFlatsIndex({ filters, filterOptions, flats }: Props
                                                     onCheckedChange={() => toggleDraftFilterValue('rooms', value)}
                                                     onSelect={(event) => event.preventDefault()}
                                                 >
-                                                    {renderRoomLabel(value)}
+                                                    {getRoomLabel(value)}
                                                 </DropdownMenuCheckboxItem>
                                             ))}
                                         </div>
@@ -405,6 +509,47 @@ export default function AdminFlatsIndex({ filters, filterOptions, flats }: Props
                                         </button>
                                     </div>
                                 </div>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    type="button"
+                                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                    aria-label="Режим отображения"
+                                    title="Режим отображения"
+                                >
+                                    {currentViewIcon}
+                                </button>
+                            </DropdownMenuTrigger>
+
+                            <DropdownMenuContent align="start" className="w-48">
+                                <DropdownMenuLabel>Режим просмотра</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuRadioGroup
+                                    value={filters.view}
+                                    onValueChange={(value) =>
+                                        navigate({
+                                            view: value as ViewMode,
+                                            page: 1,
+                                        })
+                                    }
+                                >
+                                    <DropdownMenuRadioItem value="table">
+                                        <div className="flex items-center gap-2">
+                                            <Table2 className="h-4 w-4" />
+                                            <span>Таблица</span>
+                                        </div>
+                                    </DropdownMenuRadioItem>
+
+                                    <DropdownMenuRadioItem value="list">
+                                        <div className="flex items-center gap-2">
+                                            <List className="h-4 w-4" />
+                                            <span>Список</span>
+                                        </div>
+                                    </DropdownMenuRadioItem>
+                                </DropdownMenuRadioGroup>
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </form>
@@ -464,7 +609,7 @@ export default function AdminFlatsIndex({ filters, filterOptions, flats }: Props
 
                         {filters.rooms.length > 0 ? (
                             <span className="inline-flex items-center rounded-full border px-3 py-1 text-xs text-muted-foreground">
-                                Комнаты: {filters.rooms.map((value) => renderRoomLabel(value)).join(', ')}
+                                Комнаты: {filters.rooms.map((value) => getRoomLabel(value)).join(', ')}
                             </span>
                         ) : null}
 
@@ -486,128 +631,213 @@ export default function AdminFlatsIndex({ filters, filterOptions, flats }: Props
                     </div>
                 ) : (
                     <>
-                        <div className="overflow-x-auto rounded-xl border">
-                            <table className="min-w-full text-sm">
-                                <thead>
-                                    <tr className="border-b bg-muted/20 text-left">
-                                        <th className="w-12 px-3 py-3">
-                                            <Checkbox
-                                                checked={allCurrentPageSelected ? true : someCurrentPageSelected ? 'indeterminate' : false}
-                                                onCheckedChange={handleSelectAllCurrentPage}
-                                                aria-label="Выбрать все строки на странице"
-                                            />
-                                        </th>
+                        {filters.view === 'table' ? (
+                            <div className="overflow-x-auto rounded-xl border">
+                                <table className="min-w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b bg-muted/20 text-left">
+                                            <th className="w-12 px-3 py-3">
+                                                <Checkbox
+                                                    checked={allCurrentPageSelected ? true : someCurrentPageSelected ? 'indeterminate' : false}
+                                                    onCheckedChange={handleSelectAllCurrentPage}
+                                                    aria-label="Выбрать все строки на странице"
+                                                />
+                                            </th>
 
-                                        <th className="px-3 py-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSort('id')}
-                                                className="inline-flex items-center gap-1.5 font-medium text-foreground/80 hover:text-foreground"
-                                            >
-                                                ID
-                                                {sortIcon('id')}
-                                            </button>
-                                        </th>
-                                        <th className="px-3 py-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSort('building')}
-                                                className="inline-flex items-center gap-1.5 font-medium text-foreground/80 hover:text-foreground"
-                                            >
-                                                Корпус
-                                                {sortIcon('building')}
-                                            </button>
-                                        </th>
-                                        <th className="px-3 py-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSort('floor')}
-                                                className="inline-flex items-center gap-1.5 font-medium text-foreground/80 hover:text-foreground"
-                                            >
-                                                Этаж
-                                                {sortIcon('floor')}
-                                            </button>
-                                        </th>
-                                        <th className="px-3 py-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSort('number')}
-                                                className="inline-flex items-center gap-1.5 font-medium text-foreground/80 hover:text-foreground"
-                                            >
-                                                Квартира
-                                                {sortIcon('number')}
-                                            </button>
-                                        </th>
-                                        <th className="px-3 py-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSort('rooms_number')}
-                                                className="inline-flex items-center gap-1.5 font-medium text-foreground/80 hover:text-foreground"
-                                            >
-                                                Комнат
-                                                {sortIcon('rooms_number')}
-                                            </button>
-                                        </th>
-                                        <th className="px-3 py-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSort('square')}
-                                                className="inline-flex items-center gap-1.5 font-medium text-foreground/80 hover:text-foreground"
-                                            >
-                                                Площадь
-                                                {sortIcon('square')}
-                                            </button>
-                                        </th>
-                                        <th className="px-3 py-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSort('price')}
-                                                className="inline-flex items-center gap-1.5 font-medium text-foreground/80 hover:text-foreground"
-                                            >
-                                                Цена
-                                                {sortIcon('price')}
-                                            </button>
-                                        </th>
-                                        <th className="px-3 py-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSort('sold')}
-                                                className="inline-flex items-center gap-1.5 font-medium text-foreground/80 hover:text-foreground"
-                                            >
-                                                Статус
-                                                {sortIcon('sold')}
-                                            </button>
-                                        </th>
-                                        <th className="px-3 py-3 font-medium text-foreground/80">Slug</th>
-                                        <th className="px-3 py-3 font-medium text-foreground/80">Карточка</th>
-                                        <th className="w-14 px-3 py-3 text-right"></th>
-                                    </tr>
-                                </thead>
+                                            <th className="px-3 py-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSort('id')}
+                                                    className="inline-flex items-center gap-1.5 font-medium text-foreground/80 hover:text-foreground"
+                                                >
+                                                    ID
+                                                    {sortIcon('id')}
+                                                </button>
+                                            </th>
+                                            <th className="px-3 py-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSort('building')}
+                                                    className="inline-flex items-center gap-1.5 font-medium text-foreground/80 hover:text-foreground"
+                                                >
+                                                    Корпус
+                                                    {sortIcon('building')}
+                                                </button>
+                                            </th>
+                                            <th className="px-3 py-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSort('floor')}
+                                                    className="inline-flex items-center gap-1.5 font-medium text-foreground/80 hover:text-foreground"
+                                                >
+                                                    Этаж
+                                                    {sortIcon('floor')}
+                                                </button>
+                                            </th>
+                                            <th className="px-3 py-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSort('number')}
+                                                    className="inline-flex items-center gap-1.5 font-medium text-foreground/80 hover:text-foreground"
+                                                >
+                                                    Квартира
+                                                    {sortIcon('number')}
+                                                </button>
+                                            </th>
+                                            <th className="px-3 py-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSort('rooms_number')}
+                                                    className="inline-flex items-center gap-1.5 font-medium text-foreground/80 hover:text-foreground"
+                                                >
+                                                    Комнат
+                                                    {sortIcon('rooms_number')}
+                                                </button>
+                                            </th>
+                                            <th className="px-3 py-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSort('square')}
+                                                    className="inline-flex items-center gap-1.5 font-medium text-foreground/80 hover:text-foreground"
+                                                >
+                                                    Площадь
+                                                    {sortIcon('square')}
+                                                </button>
+                                            </th>
+                                            <th className="px-3 py-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSort('price')}
+                                                    className="inline-flex items-center gap-1.5 font-medium text-foreground/80 hover:text-foreground"
+                                                >
+                                                    Цена
+                                                    {sortIcon('price')}
+                                                </button>
+                                            </th>
+                                            <th className="px-3 py-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSort('sold')}
+                                                    className="inline-flex items-center gap-1.5 font-medium text-foreground/80 hover:text-foreground"
+                                                >
+                                                    Статус
+                                                    {sortIcon('sold')}
+                                                </button>
+                                            </th>
+                                            <th className="px-3 py-3 font-medium text-foreground/80">Slug</th>
+                                            <th className="px-3 py-3 font-medium text-foreground/80">Карточка</th>
+                                            <th className="w-14 px-3 py-3 text-right"></th>
+                                        </tr>
+                                    </thead>
 
-                                <tbody>
-                                    {flats.data.map((flat) => {
-                                        const isSelected = selectedIds.includes(flat.id);
+                                    <tbody>
+                                        {flats.data.map((flat) => {
+                                            const isSelected = selectedIds.includes(flat.id);
 
-                                        return (
-                                            <tr key={flat.id} className={`border-b last:border-b-0 ${isSelected ? 'bg-muted/20' : ''}`}>
-                                                <td className="px-3 py-3">
-                                                    <Checkbox
-                                                        checked={isSelected}
-                                                        onCheckedChange={(checked) => handleSelectRow(flat.id, checked)}
-                                                        aria-label={`Выбрать квартиру ${flat.id}`}
-                                                    />
-                                                </td>
+                                            return (
+                                                <tr key={flat.id} className={`border-b last:border-b-0 ${isSelected ? 'bg-muted/20' : ''}`}>
+                                                    <td className="px-3 py-3">
+                                                        <Checkbox
+                                                            checked={isSelected}
+                                                            onCheckedChange={(checked) => handleSelectRow(flat.id, checked)}
+                                                            aria-label={`Выбрать квартиру ${flat.id}`}
+                                                        />
+                                                    </td>
 
-                                                <td className="whitespace-nowrap px-3 py-3">{flat.id}</td>
-                                                <td className="whitespace-nowrap px-3 py-3">{flat.building}</td>
-                                                <td className="whitespace-nowrap px-3 py-3">{flat.floor}</td>
-                                                <td className="whitespace-nowrap px-3 py-3">{flat.number}</td>
-                                                <td className="whitespace-nowrap px-3 py-3">{flat.rooms}</td>
-                                                <td className="whitespace-nowrap px-3 py-3">{squareFormatter.format(flat.square)} м²</td>
-                                                <td className="whitespace-nowrap px-3 py-3">{priceFormatter.format(flat.price)} ₽</td>
-                                                <td className="whitespace-nowrap px-3 py-3">
+                                                    <td className="whitespace-nowrap px-3 py-3">{flat.id}</td>
+                                                    <td className="whitespace-nowrap px-3 py-3">{flat.building}</td>
+                                                    <td className="whitespace-nowrap px-3 py-3">{flat.floor}</td>
+                                                    <td className="whitespace-nowrap px-3 py-3">{flat.number}</td>
+                                                    <td className="whitespace-nowrap px-3 py-3">{flat.rooms}</td>
+                                                    <td className="whitespace-nowrap px-3 py-3">{squareFormatter.format(flat.square)} м²</td>
+                                                    <td className="whitespace-nowrap px-3 py-3">{priceFormatter.format(flat.price)} ₽</td>
+                                                    <td className="whitespace-nowrap px-3 py-3">
+                                                        <span
+                                                            className={`inline-flex rounded-full px-2 py-0.5 text-xs ${
+                                                                flat.sold
+                                                                    ? 'text-red-600 dark:text-red-400'
+                                                                    : 'text-emerald-600 dark:text-emerald-400'
+                                                            }`}
+                                                        >
+                                                            {flat.sold ? 'Продана' : 'Доступна'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-3 py-3 font-mono text-xs text-muted-foreground">
+                                                        {flat.slug}
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-3 py-3">
+                                                        <a
+                                                            href={route('apartments.show', flat.slug)}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                                                        >
+                                                            Открыть
+                                                        </a>
+                                                    </td>
+                                                    <td className="px-3 py-3 text-right">
+                                                        <FlatActionsDropdown flat={flat} />
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {flats.data.map((flat) => {
+                                    const pricePerSquare = getPricePerSquare(flat.price, flat.square);
+
+                                    return (
+                                        <div
+                                            key={flat.id}
+                                            className="grid gap-4 rounded-2xl border p-4 transition-colors hover:bg-muted/20 xl:grid-cols-[180px_minmax(240px,1.1fr)_minmax(320px,1fr)_180px_56px] xl:items-center"
+                                        >
+                                            <div className="w-full">
+                                                <FlatPlanPreview
+                                                    src={flat.plan}
+                                                    alt={`План квартиры ${flat.number}`}
+                                                />
+                                            </div>
+
+                                            <div className="min-w-0">
+                                                <a
+                                                    href={route('apartments.show', flat.slug)}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="inline-block text-lg font-semibold text-foreground transition-colors hover:text-primary"
+                                                >
+                                                    {getRoomLabel(flat.rooms)}, {squareFormatter.format(flat.square)} м²
+                                                </a>
+
+                                                <div className="mt-2 text-sm text-muted-foreground">
+                                                    {flat.finishing && flat.finishing.trim() !== '' ? flat.finishing : '—'}
+                                                </div>
+                                            </div>
+
+                                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                                                <ListMetaItem label="Корпус" value={String(flat.building)} />
+                                                <ListMetaItem
+                                                    label="Подъезд"
+                                                    value={flat.entrance !== null && flat.entrance !== '' ? String(flat.entrance) : '—'}
+                                                />
+                                                <ListMetaItem label="Этаж" value={String(flat.floor)} />
+                                                <ListMetaItem label="Номер" value={String(flat.number)} />
+                                                <ListMetaItem
+                                                    label="Цена за м²"
+                                                    value={pricePerSquare !== null ? `${priceFormatter.format(pricePerSquare)} ₽/м²` : '—'}
+                                                />
+                                            </div>
+
+                                            <div className="xl:text-right">
+                                                <div className="text-2xl font-semibold tracking-tight">
+                                                    {priceFormatter.format(flat.price)} ₽
+                                                </div>
+
+                                                <div className="mt-2">
                                                     <span
-                                                        className={`inline-flex rounded-full px-2 py-0.5 text-xs ${
+                                                        className={`inline-flex rounded-full px-2 py-1 text-xs ${
                                                             flat.sold
                                                                 ? 'text-red-600 dark:text-red-400'
                                                                 : 'text-emerald-600 dark:text-emerald-400'
@@ -615,58 +845,17 @@ export default function AdminFlatsIndex({ filters, filterOptions, flats }: Props
                                                     >
                                                         {flat.sold ? 'Продана' : 'Доступна'}
                                                     </span>
-                                                </td>
-                                                <td className="whitespace-nowrap px-3 py-3 font-mono text-xs text-muted-foreground">
-                                                    {flat.slug}
-                                                </td>
-                                                <td className="whitespace-nowrap px-3 py-3">
-                                                    <a
-                                                        href={route('apartments.show', flat.slug)}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
-                                                    >
-                                                        Открыть
-                                                    </a>
-                                                </td>
-                                                <td className="px-3 py-3 text-right">
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <button
-                                                                type="button"
-                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                                                                aria-label={`Действия для квартиры ${flat.id}`}
-                                                            >
-                                                                <MoreVertical className="h-4 w-4" />
-                                                            </button>
-                                                        </DropdownMenuTrigger>
+                                                </div>
+                                            </div>
 
-                                                        <DropdownMenuContent align="end" className="w-44">
-                                                            <DropdownMenuItem className="gap-2">
-                                                                <Pencil className="h-4 w-4" />
-                                                                Редактировать
-                                                            </DropdownMenuItem>
-
-                                                            <DropdownMenuItem className="gap-2">
-                                                                <EyeOff className="h-4 w-4" />
-                                                                Скрыть
-                                                            </DropdownMenuItem>
-
-                                                            <DropdownMenuSeparator />
-
-                                                            <DropdownMenuItem className="gap-2 text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300">
-                                                                <Trash2 className="h-4 w-4" />
-                                                                Удалить
-                                                            </DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
+                                            <div className="flex justify-end xl:justify-center">
+                                                <FlatActionsDropdown flat={flat} />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
 
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="text-sm text-muted-foreground">
@@ -702,7 +891,7 @@ export default function AdminFlatsIndex({ filters, filterOptions, flats }: Props
                     </>
                 )}
 
-                {selectedIds.length > 0 ? (
+                {filters.view === 'table' && selectedIds.length > 0 ? (
                     <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
                         <div className="flex items-center gap-2 rounded-2xl border bg-background/95 px-3 py-2 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80">
                             <span className="px-2 text-sm text-muted-foreground">
