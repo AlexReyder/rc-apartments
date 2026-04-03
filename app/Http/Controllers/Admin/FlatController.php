@@ -61,7 +61,7 @@ class FlatController extends Controller
                 'sold' => $flat->sold,
             ]);
 
-        return Inertia::render('admin/flats/index', [
+        return Inertia::render('Admin/Flats/Index', [
             'filters' => [
                 'search' => $search,
                 'perPage' => $perPage,
