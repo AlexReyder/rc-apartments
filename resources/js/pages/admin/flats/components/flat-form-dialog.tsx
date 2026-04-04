@@ -2,7 +2,6 @@ import { useForm, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 
-import { cn } from '@/lib/utils';
 import {
     Dialog,
     DialogContent,
@@ -20,6 +19,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import FlatImageUploadField from '@/pages/Admin/Flats/components/flat-image-upload-field';
 import type { Flat } from '@/pages/Admin/Flats/types';
 
@@ -59,6 +59,7 @@ type FlatFormData = {
     floor_plan: File | null;
     remove_apartment_plan: '0' | '1';
     remove_floor_plan: '0' | '1';
+    _method?: 'patch';
 };
 
 type FormField =
@@ -306,7 +307,10 @@ function toPublicUrl(path: string | null | undefined): string | null {
     return `/${path.replace(/^\/+/, '')}`;
 }
 
-function buildInitialData(flat?: Flat | null): FlatFormData {
+function buildInitialData(
+    mode: 'create' | 'edit',
+    flat?: Flat | null,
+): FlatFormData {
     return {
         building: toStringValue(flat?.building),
         floor: toStringValue(flat?.floor),
@@ -325,6 +329,7 @@ function buildInitialData(flat?: Flat | null): FlatFormData {
         floor_plan: null,
         remove_apartment_plan: '0',
         remove_floor_plan: '0',
+        ...(mode === 'edit' ? { _method: 'patch' as const } : {}),
     };
 }
 
@@ -370,10 +375,21 @@ export default function FlatFormDialog({
     const apartmentPlanInputRef = useRef<HTMLInputElement | null>(null);
     const floorPlanInputRef = useRef<HTMLInputElement | null>(null);
 
-    const { data, setData, post, patch, processing, errors, reset, clearErrors, setError } =
-        useForm<FlatFormData>(buildInitialData(mode === 'edit' ? flat : null));
+    const { data, setData, post, processing, errors, reset, clearErrors, setError } =
+        useForm<FlatFormData>(buildInitialData(mode, mode === 'edit' ? flat : null));
+
+    const resetFileInputs = () => {
+        if (apartmentPlanInputRef.current) {
+            apartmentPlanInputRef.current.value = '';
+        }
+
+        if (floorPlanInputRef.current) {
+            floorPlanInputRef.current.value = '';
+        }
+    };
 
     const replaceFormData = (nextData: FlatFormData) => {
+        reset();
         (Object.keys(nextData) as DataField[]).forEach((field) => {
             setData(field, nextData[field]);
         });
@@ -390,7 +406,7 @@ export default function FlatFormDialog({
         if (mode === 'edit' && open) {
             clearErrors();
             setCreatedFlat(null);
-            replaceFormData(buildInitialData(flat));
+            replaceFormData(buildInitialData('edit', flat));
             resetFileInputs();
         }
     }, [mode, open, flat, clearErrors]);
@@ -410,16 +426,6 @@ export default function FlatFormDialog({
 
         return 'Измените данные квартиры, при необходимости замените или удалите изображения.';
     }, [mode]);
-
-    const resetFileInputs = () => {
-        if (apartmentPlanInputRef.current) {
-            apartmentPlanInputRef.current.value = '';
-        }
-
-        if (floorPlanInputRef.current) {
-            floorPlanInputRef.current.value = '';
-        }
-    };
 
     const syncFieldError = (field: FormField, nextData: FlatFormData) => {
         const message = validateField(field, nextData[field]);
@@ -534,7 +540,7 @@ export default function FlatFormDialog({
             setCreatedFlat(null);
             clearErrors();
             reset();
-            replaceFormData(buildInitialData(mode === 'edit' ? flat : null));
+            replaceFormData(buildInitialData(mode, mode === 'edit' ? flat : null));
             resetFileInputs();
         }
 
@@ -559,7 +565,7 @@ export default function FlatFormDialog({
                 onSuccess: () => {
                     clearErrors();
                     reset();
-                    replaceFormData(buildInitialData());
+                    replaceFormData(buildInitialData('create'));
                     resetFileInputs();
                 },
                 onError: () => {
@@ -574,7 +580,7 @@ export default function FlatFormDialog({
             return;
         }
 
-        patch(route('admin.flats.update', flat.id), {
+        post(route('admin.flats.update', flat.id), {
             forceFormData: true,
             preserveScroll: true,
             onSuccess: () => {

@@ -29,6 +29,7 @@ type ActionType = 'hide' | 'sold' | 'delete' | null;
 export default function FlatActionsDropdown({ flat }: Props) {
     const [processingAction, setProcessingAction] = useState<ActionType>(null);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
 
     const isProcessing = processingAction !== null;
     const isHidden = flat.sold === 2;
@@ -47,6 +48,7 @@ export default function FlatActionsDropdown({ flat }: Props) {
             return;
         }
 
+        setMenuOpen(false);
         setProcessingAction('hide');
 
         router.patch(
@@ -74,6 +76,7 @@ export default function FlatActionsDropdown({ flat }: Props) {
             return;
         }
 
+        setMenuOpen(false);
         setProcessingAction('sold');
 
         router.patch(
@@ -101,6 +104,7 @@ export default function FlatActionsDropdown({ flat }: Props) {
             return;
         }
 
+        setMenuOpen(false);
         setProcessingAction('delete');
 
         router.delete(route('admin.flats.destroy', flat.id), {
@@ -111,9 +115,18 @@ export default function FlatActionsDropdown({ flat }: Props) {
         });
     };
 
+    const handleEdit = () => {
+        if (isProcessing) {
+            return;
+        }
+
+        setMenuOpen(false);
+        setEditDialogOpen(true);
+    };
+
     return (
         <>
-            <DropdownMenu>
+            <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
                 <DropdownMenuTrigger asChild>
                     <button
                         type="button"
@@ -148,7 +161,7 @@ export default function FlatActionsDropdown({ flat }: Props) {
                         disabled={isProcessing}
                         onSelect={(event) => {
                             event.preventDefault();
-                            setEditDialogOpen(true);
+                            handleEdit();
                         }}
                         className="gap-2"
                     >
@@ -177,7 +190,7 @@ export default function FlatActionsDropdown({ flat }: Props) {
                         className="gap-2"
                     >
                         <CheckCircle2 className="h-4 w-4" />
-                        {isSold ? 'Уже продана' : 'Проданы'}
+                        {isSold ? 'Уже продана' : 'Продать'}
                     </DropdownMenuItem>
 
                     <DropdownMenuSeparator />
