@@ -27,9 +27,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::post('/flats', [FlatController::class, 'store'])->name('flats.store');
 
     Route::patch('/flats/bulk/hide', [FlatController::class, 'bulkHide'])->name('flats.bulkHide');
+    Route::patch('/flats/bulk/sold', [FlatController::class, 'bulkMarkSold'])->name('flats.bulkMarkSold');
     Route::delete('/flats/bulk', [FlatController::class, 'bulkDestroy'])->name('flats.bulkDestroy');
 
     Route::patch('/flats/{flat}/hide', [FlatController::class, 'hide'])->name('flats.hide');
+    Route::patch('/flats/{flat}/sold', [FlatController::class, 'markSold'])->name('flats.markSold');
     Route::delete('/flats/{flat}', [FlatController::class, 'destroy'])->name('flats.destroy');
 
     Route::delete('/flats', [FlatController::class, 'destroyAll'])->name('flats.destroyAll');

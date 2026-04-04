@@ -193,6 +193,26 @@ class FlatController extends Controller
         }
     }
 
+    public function markSold(Flat $flat): RedirectResponse
+    {
+        try {
+            if ((int) $flat->sold === 1) {
+                return back()->with('success', 'Квартира уже отмечена как проданная.');
+            }
+
+            $flat->forceFill([
+                'sold' => 1,
+                'updated_at' => now(),
+            ])->save();
+
+            return back()->with('success', 'Квартира отмечена как проданная.');
+        } catch (Throwable $e) {
+            report($e);
+
+            return back()->with('error', 'Не удалось отметить квартиру как проданную. Попробуйте снова.');
+        }
+    }
+
     public function destroy(Flat $flat): RedirectResponse
     {
         try {
@@ -241,6 +261,35 @@ class FlatController extends Controller
             report($e);
 
             return back()->with('error', 'Не удалось скрыть выбранные квартиры. Попробуйте снова.');
+        }
+    }
+
+    public function bulkMarkSold(Request $request): RedirectResponse
+    {
+        $ids = $this->validateBulkIds($request);
+
+        if ($ids === []) {
+            return back()->with('error', 'Не выбраны квартиры для отметки как проданные.');
+        }
+
+        try {
+            $updatedCount = Flat::query()
+                ->whereIn('id', $ids)
+                ->where('sold', '!=', 1)
+                ->update([
+                    'sold' => 1,
+                    'updated_at' => now(),
+                ]);
+
+            if ($updatedCount === 0) {
+                return back()->with('success', 'Все выбранные квартиры уже отмечены как проданные.');
+            }
+
+            return back()->with('success', "Отмечено как проданные: {$updatedCount}");
+        } catch (Throwable $e) {
+            report($e);
+
+            return back()->with('error', 'Не удалось отметить выбранные квартиры как проданные. Попробуйте снова.');
         }
     }
 

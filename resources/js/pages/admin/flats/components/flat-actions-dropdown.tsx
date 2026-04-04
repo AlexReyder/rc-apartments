@@ -1,5 +1,6 @@
 import { router } from '@inertiajs/react';
 import {
+    CheckCircle2,
     EyeOff,
     LoaderCircle,
     MoreVertical,
@@ -22,24 +23,17 @@ type Props = {
     flat: Flat;
 };
 
-type ActionType = 'hide' | 'delete' | null;
+type ActionType = 'hide' | 'sold' | 'delete' | null;
 
 export default function FlatActionsDropdown({ flat }: Props) {
     const [processingAction, setProcessingAction] = useState<ActionType>(null);
 
     const isProcessing = processingAction !== null;
     const isHidden = flat.sold === 2;
+    const isSold = flat.sold === 1;
 
     const handleHide = () => {
         if (isProcessing || isHidden) {
-            return;
-        }
-
-        const confirmed = window.confirm(
-            `Скрыть квартиру #${flat.id} (корпус ${flat.building}, этаж ${flat.floor}, №${flat.number})?`,
-        );
-
-        if (!confirmed) {
             return;
         }
 
@@ -57,16 +51,27 @@ export default function FlatActionsDropdown({ flat }: Props) {
         );
     };
 
-    const handleDelete = () => {
-        if (isProcessing) {
+    const handleMarkSold = () => {
+        if (isProcessing || isSold) {
             return;
         }
 
-        const confirmed = window.confirm(
-            `Удалить квартиру #${flat.id} (корпус ${flat.building}, этаж ${flat.floor}, №${flat.number})? Это действие необратимо.`,
-        );
+        setProcessingAction('sold');
 
-        if (!confirmed) {
+        router.patch(
+            route('admin.flats.markSold', flat.id),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setProcessingAction(null);
+                },
+            },
+        );
+    };
+
+    const handleDelete = () => {
+        if (isProcessing) {
             return;
         }
 
@@ -127,6 +132,18 @@ export default function FlatActionsDropdown({ flat }: Props) {
                 >
                     <EyeOff className="h-4 w-4" />
                     {isHidden ? 'Уже скрыта' : 'Скрыть'}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                    disabled={isProcessing || isSold}
+                    onSelect={(event) => {
+                        event.preventDefault();
+                        handleMarkSold();
+                    }}
+                    className="gap-2"
+                >
+                    <CheckCircle2 className="h-4 w-4" />
+                    {isSold ? 'Уже продана' : 'Продана'}
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />

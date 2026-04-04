@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { EyeOff, LoaderCircle, Trash2 } from 'lucide-react';
+import { CheckCircle2, EyeOff, LoaderCircle, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 type Props = {
@@ -7,7 +7,7 @@ type Props = {
     onActionComplete: () => void;
 };
 
-type ActionType = 'hide' | 'delete' | null;
+type ActionType = 'hide' | 'sold' | 'delete' | null;
 
 export default function SelectedFlatsBar({
     selectedIds,
@@ -28,14 +28,6 @@ export default function SelectedFlatsBar({
             return;
         }
 
-        const confirmed = window.confirm(
-            `Скрыть выбранные квартиры: ${selectedCount} шт.?`,
-        );
-
-        if (!confirmed) {
-            return;
-        }
-
         setProcessingAction('hide');
 
         router.patch(
@@ -53,16 +45,30 @@ export default function SelectedFlatsBar({
         );
     };
 
-    const handleBulkDelete = () => {
+    const handleBulkMarkSold = () => {
         if (isProcessing || selectedCount <= 0) {
             return;
         }
 
-        const confirmed = window.confirm(
-            `Удалить выбранные квартиры: ${selectedCount} шт.? Это действие необратимо.`,
-        );
+        setProcessingAction('sold');
 
-        if (!confirmed) {
+        router.patch(
+            route('admin.flats.bulkMarkSold'),
+            { ids: selectedIds },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    onActionComplete();
+                },
+                onFinish: () => {
+                    setProcessingAction(null);
+                },
+            },
+        );
+    };
+
+    const handleBulkDelete = () => {
+        if (isProcessing || selectedCount <= 0) {
             return;
         }
 
@@ -102,6 +108,20 @@ export default function SelectedFlatsBar({
                         <EyeOff className="h-4 w-4" />
                     )}
                     Скрыть
+                </button>
+
+                <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={handleBulkMarkSold}
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                    {processingAction === 'sold' ? (
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                    ) : (
+                        <CheckCircle2 className="h-4 w-4" />
+                    )}
+                    Продана
                 </button>
 
                 <button
