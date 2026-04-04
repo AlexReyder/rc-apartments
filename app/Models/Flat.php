@@ -22,8 +22,12 @@ class Flat extends Model
         'number' => 'integer',
         'rooms_number' => 'integer',
         'square' => 'float',
+        'living_square' => 'float',
+        'ceiling_height' => 'float',
         'price' => 'integer',
-        'sold' => 'boolean',
+        'price_m2' => 'integer',
+        'sold' => 'integer',
+        'entrance_number' => 'integer',
     ];
 
     public function getSlugAttribute(): string

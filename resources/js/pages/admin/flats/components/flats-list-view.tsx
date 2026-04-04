@@ -26,6 +26,30 @@ function ListMetaItem({ label, value }: { label: string; value: string }) {
 }
 
 export default function FlatsListView({ flats }: Props) {
+    const renderStatus = (flat: Flat) => {
+        if (flat.sold === 2) {
+            return (
+                <span className="inline-flex rounded-full px-2 py-1 text-xs text-slate-500 dark:text-slate-400">
+                    Скрыта
+                </span>
+            );
+        }
+
+        if (flat.sold === 1) {
+            return (
+                <span className="inline-flex rounded-full px-2 py-1 text-xs text-red-600 dark:text-red-400">
+                    Продана
+                </span>
+            );
+        }
+
+        return (
+            <span className="inline-flex rounded-full px-2 py-1 text-xs text-emerald-600 dark:text-emerald-400">
+                Доступна
+            </span>
+        );
+    };
+
     return (
         <div className="space-y-4">
             {flats.map((flat) => {
@@ -50,8 +74,7 @@ export default function FlatsListView({ flats }: Props) {
                                 rel="noreferrer"
                                 className="inline-block text-lg font-semibold text-foreground transition-colors hover:text-primary"
                             >
-                                {getRoomLabel(flat.rooms)},{' '}
-                                {squareFormatter.format(flat.square)} м²
+                                {getRoomLabel(flat.rooms)}, {squareFormatter.format(flat.square)} м²
                             </a>
 
                             <div className="mt-2 text-sm text-muted-foreground">
@@ -88,17 +111,7 @@ export default function FlatsListView({ flats }: Props) {
                                 {priceFormatter.format(flat.price)} ₽
                             </div>
 
-                            <div className="mt-2">
-                                <span
-                                    className={`inline-flex rounded-full px-2 py-1 text-xs ${
-                                        flat.sold
-                                            ? 'text-red-600 dark:text-red-400'
-                                            : 'text-emerald-600 dark:text-emerald-400'
-                                    }`}
-                                >
-                                    {flat.sold ? 'Продана' : 'Доступна'}
-                                </span>
-                            </div>
+                            <div className="mt-2">{renderStatus(flat)}</div>
                         </div>
 
                         <div className="flex justify-end xl:justify-center">

@@ -24,6 +24,7 @@ Route::prefix('3dpanorama')->name('panorama.')->group(function () {
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/flats', [FlatController::class, 'index'])->name('flats.index');
+    Route::post('/flats', [FlatController::class, 'store'])->name('flats.store');
 });
 
 require __DIR__.'/auth.php';

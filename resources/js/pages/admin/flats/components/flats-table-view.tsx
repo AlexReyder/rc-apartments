@@ -47,6 +47,30 @@ export default function FlatsTableView({
         );
     };
 
+    const renderStatus = (flat: Flat) => {
+        if (flat.sold === 2) {
+            return (
+                <span className="inline-flex rounded-full px-2 py-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    Скрыта
+                </span>
+            );
+        }
+
+        if (flat.sold === 1) {
+            return (
+                <span className="inline-flex rounded-full px-2 py-0.5 text-xs text-red-600 dark:text-red-400">
+                    Продана
+                </span>
+            );
+        }
+
+        return (
+            <span className="inline-flex rounded-full px-2 py-0.5 text-xs text-emerald-600 dark:text-emerald-400">
+                Доступна
+            </span>
+        );
+    };
+
     return (
         <div className="overflow-x-auto rounded-xl border">
             <table className="min-w-full text-sm">
@@ -183,21 +207,11 @@ export default function FlatsTableView({
                                     />
                                 </td>
 
-                                <td className="whitespace-nowrap px-3 py-3">
-                                    {flat.id}
-                                </td>
-                                <td className="whitespace-nowrap px-3 py-3">
-                                    {flat.building}
-                                </td>
-                                <td className="whitespace-nowrap px-3 py-3">
-                                    {flat.floor}
-                                </td>
-                                <td className="whitespace-nowrap px-3 py-3">
-                                    {flat.number}
-                                </td>
-                                <td className="whitespace-nowrap px-3 py-3">
-                                    {flat.rooms}
-                                </td>
+                                <td className="whitespace-nowrap px-3 py-3">{flat.id}</td>
+                                <td className="whitespace-nowrap px-3 py-3">{flat.building}</td>
+                                <td className="whitespace-nowrap px-3 py-3">{flat.floor}</td>
+                                <td className="whitespace-nowrap px-3 py-3">{flat.number}</td>
+                                <td className="whitespace-nowrap px-3 py-3">{flat.rooms}</td>
                                 <td className="whitespace-nowrap px-3 py-3">
                                     {squareFormatter.format(flat.square)} м²
                                 </td>
@@ -205,15 +219,7 @@ export default function FlatsTableView({
                                     {priceFormatter.format(flat.price)} ₽
                                 </td>
                                 <td className="whitespace-nowrap px-3 py-3">
-                                    <span
-                                        className={`inline-flex rounded-full px-2 py-0.5 text-xs ${
-                                            flat.sold
-                                                ? 'text-red-600 dark:text-red-400'
-                                                : 'text-emerald-600 dark:text-emerald-400'
-                                        }`}
-                                    >
-                                        {flat.sold ? 'Продана' : 'Доступна'}
-                                    </span>
+                                    {renderStatus(flat)}
                                 </td>
                                 <td className="whitespace-nowrap px-3 py-3 font-mono text-xs text-muted-foreground">
                                     {flat.slug}

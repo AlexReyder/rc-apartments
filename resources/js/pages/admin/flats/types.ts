@@ -8,7 +8,7 @@ export type Flat = {
     rooms: number;
     square: number;
     price: number;
-    sold: boolean;
+    sold: 0 | 1 | 2;
     plan: string | null;
     finishing: string | null;
 };

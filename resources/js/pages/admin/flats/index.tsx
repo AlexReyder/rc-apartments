@@ -16,6 +16,7 @@ import type {
     ViewMode,
 } from '@/pages/Admin/Flats/types';
 import { type BreadcrumbItem } from '@/types';
+import FlatsEmptyState from './components/flat-empty-state';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -234,14 +235,7 @@ export default function AdminFlatsIndex({
                 />
 
                 {flats.data.length === 0 ? (
-                    <div className="rounded-xl border border-dashed px-6 py-12 text-center">
-                        <h2 className="text-base font-medium">
-                            Квартиры не найдены
-                        </h2>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            Попробуйте изменить параметры поиска.
-                        </p>
-                    </div>
+                    <FlatsEmptyState/>
                 ) : (
                     <>
                         {filters.view === 'table' ? (

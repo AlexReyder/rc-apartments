@@ -23,7 +23,7 @@ export default function FlatPlanPreview({ src, alt }: Props) {
     return (
         <div className="overflow-hidden rounded-xl border bg-white">
             <img
-                src={src}
+                src={`http://localhost:8000/${src}`}
                 alt={alt}
                 className="aspect-[4/3] h-full w-full object-contain"
                 loading="lazy"
