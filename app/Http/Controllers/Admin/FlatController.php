@@ -164,6 +164,46 @@ class FlatController extends Controller
             ]);
     }
 
+     public function destroyAll(): RedirectResponse
+     {
+        try {
+            $filesToDelete = Flat::query()
+                ->select(['plan', 'floor_position'])
+                ->get()
+                ->flatMap(function (Flat $flat) {
+                    return [
+                        $this->normalizePublicStoragePath($flat->plan),
+                        $this->normalizePublicStoragePath($flat->floor_position),
+                    ];
+                })
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            $deletedCount = 0;
+
+            DB::connection('mysql')->transaction(function () use (&$deletedCount) {
+                $deletedCount = Flat::query()->count();
+                Flat::query()->delete();
+            });
+
+            if ($filesToDelete !== []) {
+                Storage::disk('public')->delete($filesToDelete);
+            }
+
+            return redirect()
+                ->route('admin.flats.index')
+                ->with('success', "Удалено квартир: {$deletedCount}");
+        } catch (Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->route('admin.flats.index')
+                ->with('error', 'Не удалось удалить все квартиры. Попробуйте снова.');
+        }
+    }
+
     private function makeTitle(int $building, int $number): string
     {
         return sprintf(
@@ -216,5 +256,20 @@ class FlatController extends Controller
             ->sort()
             ->values()
             ->all();
+    }
+
+    private function normalizePublicStoragePath(?string $path): ?string
+    {
+        if (!$path) {
+            return null;
+        }
+
+        $normalized = ltrim($path, '/');
+
+        if (str_starts_with($normalized, 'storage/')) {
+            return substr($normalized, strlen('storage/'));
+        }
+
+        return $normalized;
     }
 }

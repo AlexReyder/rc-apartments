@@ -1,3 +1,4 @@
+import { router } from '@inertiajs/react';
 import {
     Download,
     Filter,
@@ -24,6 +25,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import CreateFlatDialog from '@/pages/Admin/Flats/components/create-flat-dialog';
+import DeleteAllFlatsDialog from '@/pages/Admin/Flats/components/delete-all-flats-dialog';
 import type {
     DraftFilters,
     FilterOptions,
@@ -69,6 +71,8 @@ export default function FlatsToolbar({
     onViewChange,
 }: Props) {
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
+    const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
+    const [deleteAllProcessing, setDeleteAllProcessing] = useState(false);
 
     const currentViewIcon =
         filters.view === 'list' ? (
@@ -76,6 +80,17 @@ export default function FlatsToolbar({
         ) : (
             <Table2 className="h-4 w-4" />
         );
+
+    const handleDeleteAllConfirm = () => {
+        router.delete(route('admin.flats.destroyAll'), {
+            preserveScroll: true,
+            onStart: () => setDeleteAllProcessing(true),
+            onSuccess: () => {
+                setDeleteAllDialogOpen(false);
+            },
+            onFinish: () => setDeleteAllProcessing(false),
+        });
+    };
 
     return (
         <>
@@ -299,7 +314,10 @@ export default function FlatsToolbar({
 
                             <DropdownMenuSeparator />
 
-                            <DropdownMenuItem className="gap-2 text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300">
+                            <DropdownMenuItem
+                                className="gap-2 text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300"
+                                onClick={() => setDeleteAllDialogOpen(true)}
+                            >
                                 <Trash2 className="h-4 w-4" />
                                 Удалить все квартиры
                             </DropdownMenuItem>
@@ -311,6 +329,13 @@ export default function FlatsToolbar({
             <CreateFlatDialog
                 open={createDialogOpen}
                 onOpenChange={setCreateDialogOpen}
+            />
+
+            <DeleteAllFlatsDialog
+                open={deleteAllDialogOpen}
+                onOpenChange={setDeleteAllDialogOpen}
+                onConfirm={handleDeleteAllConfirm}
+                processing={deleteAllProcessing}
             />
         </>
     );
