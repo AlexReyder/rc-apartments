@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Flat;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 class FlatController extends Controller
 {
@@ -84,93 +87,82 @@ class FlatController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'building' => ['required', 'integer', 'min:1'],
-            'floor' => ['required', 'integer', 'min:1'],
-            'entrance_number' => ['required', 'integer', 'min:1'],
-            'number' => ['required', 'integer', 'min:1'],
-            'rooms_number' => ['required', 'integer', Rule::in([0, 1, 2, 3, 4])],
-            'square' => ['required', 'numeric', 'min:0'],
-            'living_square' => ['required', 'numeric', 'min:0'],
-            'ceiling_height' => ['required', 'numeric', 'min:0'],
-            'price_m2' => ['required', 'integer', 'min:0'],
-            'price' => ['required', 'integer', 'min:0'],
-            'finishing' => ['required', 'string', 'max:255'],
-            'finish_date' => ['required', 'date'],
-            'status' => ['required', Rule::in(['available', 'sold', 'hidden'])],
-            'apartment_plan' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
-            'floor_plan' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
-        ]);
+        $validated = $request->validate(
+            $this->storeValidationRules(),
+            $this->storeValidationMessages(),
+            $this->storeValidationAttributes(),
+        );
 
-       try {
-        $apartmentPlanPath = $request->file('apartment_plan')?->store('apartments/plans', 'public');
-        $floorPlanPath = $request->file('floor_plan')?->store('apartments/floors', 'public');
+        try {
+            $apartmentPlanPath = $request->file('apartment_plan')?->store('apartments/plans', 'public');
+            $floorPlanPath = $request->file('floor_plan')?->store('apartments/floors', 'public');
 
-        $building = (int) $validated['building'];
-        $floor = (int) $validated['floor'];
-        $entrance = (int) $validated['entrance_number'];
-        $number = (int) $validated['number'];
-        $rooms = (int) $validated['rooms_number'];
-        $square = round((float) $validated['square'], 2);
-        $livingSquare = round((float) $validated['living_square'], 2);
-        $ceilingHeight = round((float) $validated['ceiling_height'], 2);
-        $priceM2 = (int) $validated['price_m2'];
-        $price = (int) $validated['price'];
-        $finishDate = $validated['finish_date'];
-        $finishing = trim((string) $validated['finishing']);
+            $building = (int) $validated['building'];
+            $floor = (int) $validated['floor'];
+            $entrance = (int) $validated['entrance_number'];
+            $number = (int) $validated['number'];
+            $rooms = (int) $validated['rooms_number'];
+            $square = round((float) $validated['square'], 2);
+            $livingSquare = round((float) $validated['living_square'], 2);
+            $ceilingHeight = round((float) $validated['ceiling_height'], 2);
+            $priceM2 = (int) $validated['price_m2'];
+            $price = (int) $validated['price'];
+            $finishDate = $validated['finish_date'];
+            $finishing = trim((string) $validated['finishing']);
 
-        $soldStatus = match ($validated['status']) {
-            'available' => 0,
-            'sold' => 1,
-            'hidden' => 2,
-        };
+            $soldStatus = match ($validated['status']) {
+                'available' => 0,
+                'sold' => 1,
+                'hidden' => 2,
+            };
 
-        $flat = Flat::query()->create([
-            'rooms_number' => $rooms,
-            'rooms_number_true' => $rooms,
-            'floor' => $floor,
-            'square' => $square,
-            'created_at' => now(),
-            'updated_at' => now(),
-            'entrance_number' => $entrance,
-            'living_square' => $livingSquare,
-            'ceiling_height' => $ceilingHeight,
-            'plan' => $apartmentPlanPath ? 'storage/'.$apartmentPlanPath : null,
-            'sold' => $soldStatus,
-            'building' => $building,
-            'number' => $number,
-            'price' => $price,
-            'price_m2' => $priceM2,
-            'floor_position' => $floorPlanPath ? 'storage/'.$floorPlanPath : null,
-            'finish_date' => $finishDate,
-            'finishing' => $finishing,
-            'action' => 0,
-            'action_price_m2' => 0,
-            'title' => $this->makeTitle($building, $number),
-            'description' => $this->makeDescription(
-                $building,
-                $number,
-                $entrance,
-                $floor,
-                $rooms,
-                $square,
-            ),
-        ]);
-
-        return back()
-            ->with('success', 'Квартира успешно добавлена.')
-            ->with('createdFlat', [
-                'id' => $flat->id,
-                'slug' => $flat->slug,
+            $flat = Flat::query()->create([
+                'rooms_number' => $rooms,
+                'rooms_number_true' => $rooms,
+                'floor' => $floor,
+                'square' => $square,
+                'created_at' => now(),
+                'updated_at' => now(),
+                'entrance_number' => $entrance,
+                'living_square' => $livingSquare,
+                'ceiling_height' => $ceilingHeight,
+                'plan' => $apartmentPlanPath ? 'storage/' . $apartmentPlanPath : null,
+                'sold' => $soldStatus,
+                'building' => $building,
+                'number' => $number,
+                'price' => $price,
+                'price_m2' => $priceM2,
+                'floor_position' => $floorPlanPath ? 'storage/' . $floorPlanPath : null,
+                'finish_date' => $finishDate,
+                'finishing' => $finishing,
+                'action' => 0,
+                'action_price_m2' => 0,
+                'title' => $this->makeTitle($building, $number),
+                'description' => $this->makeDescription(
+                    $building,
+                    $number,
+                    $entrance,
+                    $floor,
+                    $rooms,
+                    $square,
+                ),
             ]);
-    } catch (\Throwable $e) {
-        report($e);
-        return back()->with('error', 'Не удалось добавить квартиру. Попробуйте снова.');
-    }
+
+            return back()
+                ->with('success', 'Квартира успешно добавлена.')
+                ->with('createdFlat', [
+                    'id' => $flat->id,
+                    'slug' => $flat->slug,
+                ]);
+        } catch (Throwable $e) {
+            report($e);
+
+            return back()->with('error', 'Не удалось добавить квартиру. Попробуйте снова.');
+        }
     }
 
-     public function destroyAll(): RedirectResponse
-     {
+    public function destroyAll(): RedirectResponse
+    {
         try {
             $filesToDelete = Flat::query()
                 ->select(['plan', 'floor_position'])
@@ -207,6 +199,65 @@ class FlatController extends Controller
                 ->route('admin.flats.index')
                 ->with('error', 'Не удалось удалить все квартиры. Попробуйте снова.');
         }
+    }
+
+    private function storeValidationRules(): array
+    {
+        return [
+            'building' => ['bail', 'required', 'integer', 'min:1'],
+            'floor' => ['bail', 'required', 'integer', 'min:1'],
+            'entrance_number' => ['bail', 'required', 'integer', 'min:1'],
+            'number' => ['bail', 'required', 'integer', 'min:1'],
+            'rooms_number' => ['bail', 'required', 'integer', Rule::in([0, 1, 2, 3, 4])],
+            'square' => ['bail', 'required', 'numeric', 'min:0'],
+            'living_square' => ['bail', 'required', 'numeric', 'min:0'],
+            'ceiling_height' => ['bail', 'required', 'numeric', 'min:0'],
+            'price_m2' => ['bail', 'required', 'integer', 'min:0'],
+            'price' => ['bail', 'required', 'integer', 'min:0'],
+            'finishing' => ['bail', 'required', 'string', 'max:255'],
+            'finish_date' => ['bail', 'required', 'date'],
+            'status' => ['bail', 'required', Rule::in(['available', 'sold', 'hidden'])],
+            'apartment_plan' => ['bail', 'nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
+            'floor_plan' => ['bail', 'nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
+        ];
+    }
+
+    private function storeValidationMessages(): array
+    {
+        return [
+            'required' => 'Поле «:attribute» обязательно.',
+            'integer' => 'Поле «:attribute» должно быть целым числом.',
+            'numeric' => 'Поле «:attribute» должно быть числом.',
+            'min.integer' => 'Поле «:attribute» не может быть меньше :min.',
+            'min.numeric' => 'Поле «:attribute» не может быть меньше :min.',
+            'max.string' => 'Поле «:attribute» не должно быть длиннее :max символов.',
+            'date' => 'Укажите корректную дату в поле «:attribute».',
+            'in' => 'Выберите корректное значение для поля «:attribute».',
+            'file' => 'Поле «:attribute» должно быть файлом.',
+            'mimes' => 'Поле «:attribute» поддерживает только JPG, JPEG, PNG, WEBP и SVG.',
+            'max.file' => 'Файл «:attribute» не должен превышать 5 МБ.',
+        ];
+    }
+
+    private function storeValidationAttributes(): array
+    {
+        return [
+            'building' => 'корпус',
+            'floor' => 'этаж',
+            'entrance_number' => 'подъезд',
+            'number' => 'номер квартиры',
+            'rooms_number' => 'количество комнат',
+            'square' => 'общая площадь',
+            'living_square' => 'жилая площадь',
+            'ceiling_height' => 'высота потолков',
+            'price_m2' => 'цена за кв.м.',
+            'price' => 'стоимость квартиры',
+            'finishing' => 'отделка',
+            'finish_date' => 'дата окончания строительства',
+            'status' => 'статус',
+            'apartment_plan' => 'план квартиры',
+            'floor_plan' => 'план этажа',
+        ];
     }
 
     private function makeTitle(int $building, int $number): string
@@ -265,7 +316,7 @@ class FlatController extends Controller
 
     private function normalizePublicStoragePath(?string $path): ?string
     {
-        if (!$path) {
+        if (! $path) {
             return null;
         }
 
