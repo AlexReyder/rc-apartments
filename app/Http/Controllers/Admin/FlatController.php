@@ -102,6 +102,7 @@ class FlatController extends Controller
             'floor_plan' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
         ]);
 
+       try {
         $apartmentPlanPath = $request->file('apartment_plan')?->store('apartments/plans', 'public');
         $floorPlanPath = $request->file('floor_plan')?->store('apartments/floors', 'public');
 
@@ -162,6 +163,10 @@ class FlatController extends Controller
                 'id' => $flat->id,
                 'slug' => $flat->slug,
             ]);
+    } catch (\Throwable $e) {
+        report($e);
+        return back()->with('error', 'Не удалось добавить квартиру. Попробуйте снова.');
+    }
     }
 
      public function destroyAll(): RedirectResponse
