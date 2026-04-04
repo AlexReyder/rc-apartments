@@ -87,11 +87,23 @@ class FlatController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate(
-            $this->storeValidationRules(),
-            $this->storeValidationMessages(),
-            $this->storeValidationAttributes(),
-        );
+        $validated = $request->validate([
+            'building' => ['required', 'integer', 'min:1'],
+            'floor' => ['required', 'integer', 'min:1'],
+            'entrance_number' => ['required', 'integer', 'min:1'],
+            'number' => ['required', 'integer', 'min:1'],
+            'rooms_number' => ['required', 'integer', Rule::in([0, 1, 2, 3, 4])],
+            'square' => ['required', 'numeric', 'min:0'],
+            'living_square' => ['required', 'numeric', 'min:0'],
+            'ceiling_height' => ['required', 'numeric', 'min:0'],
+            'price_m2' => ['required', 'integer', 'min:0'],
+            'price' => ['required', 'integer', 'min:0'],
+            'finishing' => ['required', 'string', 'max:255'],
+            'finish_date' => ['required', 'date'],
+            'status' => ['required', Rule::in(['available', 'sold', 'hidden'])],
+            'apartment_plan' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
+            'floor_plan' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
+        ]);
 
         try {
             $apartmentPlanPath = $request->file('apartment_plan')?->store('apartments/plans', 'public');
@@ -126,13 +138,13 @@ class FlatController extends Controller
                 'entrance_number' => $entrance,
                 'living_square' => $livingSquare,
                 'ceiling_height' => $ceilingHeight,
-                'plan' => $apartmentPlanPath ? 'storage/' . $apartmentPlanPath : null,
+                'plan' => $apartmentPlanPath ? 'storage/'.$apartmentPlanPath : null,
                 'sold' => $soldStatus,
                 'building' => $building,
                 'number' => $number,
                 'price' => $price,
                 'price_m2' => $priceM2,
-                'floor_position' => $floorPlanPath ? 'storage/' . $floorPlanPath : null,
+                'floor_position' => $floorPlanPath ? 'storage/'.$floorPlanPath : null,
                 'finish_date' => $finishDate,
                 'finishing' => $finishing,
                 'action' => 0,
@@ -158,6 +170,124 @@ class FlatController extends Controller
             report($e);
 
             return back()->with('error', 'Не удалось добавить квартиру. Попробуйте снова.');
+        }
+    }
+
+    public function hide(Flat $flat): RedirectResponse
+    {
+        try {
+            if ((int) $flat->sold === 2) {
+                return back()->with('success', 'Квартира уже скрыта.');
+            }
+
+            $flat->forceFill([
+                'sold' => 2,
+                'updated_at' => now(),
+            ])->save();
+
+            return back()->with('success', 'Квартира скрыта.');
+        } catch (Throwable $e) {
+            report($e);
+
+            return back()->with('error', 'Не удалось скрыть квартиру. Попробуйте снова.');
+        }
+    }
+
+    public function destroy(Flat $flat): RedirectResponse
+    {
+        try {
+            $filesToDelete = [
+                $this->normalizePublicStoragePath($flat->plan),
+                $this->normalizePublicStoragePath($flat->floor_position),
+            ];
+
+            DB::connection('mysql')->transaction(function () use ($flat) {
+                $flat->delete();
+            });
+
+            $this->deletePublicFiles($filesToDelete);
+
+            return back()->with('success', 'Квартира удалена.');
+        } catch (Throwable $e) {
+            report($e);
+
+            return back()->with('error', 'Не удалось удалить квартиру. Попробуйте снова.');
+        }
+    }
+
+    public function bulkHide(Request $request): RedirectResponse
+    {
+        $ids = $this->validateBulkIds($request);
+
+        if ($ids === []) {
+            return back()->with('error', 'Не выбраны квартиры для скрытия.');
+        }
+
+        try {
+            $updatedCount = Flat::query()
+                ->whereIn('id', $ids)
+                ->where('sold', '!=', 2)
+                ->update([
+                    'sold' => 2,
+                    'updated_at' => now(),
+                ]);
+
+            if ($updatedCount === 0) {
+                return back()->with('success', 'Все выбранные квартиры уже скрыты.');
+            }
+
+            return back()->with('success', "Скрыто квартир: {$updatedCount}");
+        } catch (Throwable $e) {
+            report($e);
+
+            return back()->with('error', 'Не удалось скрыть выбранные квартиры. Попробуйте снова.');
+        }
+    }
+
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        $ids = $this->validateBulkIds($request);
+
+        if ($ids === []) {
+            return back()->with('error', 'Не выбраны квартиры для удаления.');
+        }
+
+        try {
+            $flats = Flat::query()
+                ->whereIn('id', $ids)
+                ->get(['id', 'plan', 'floor_position']);
+
+            if ($flats->isEmpty()) {
+                return back()->with('error', 'Квартиры для удаления не найдены.');
+            }
+
+            $filesToDelete = $flats
+                ->flatMap(function (Flat $flat) {
+                    return [
+                        $this->normalizePublicStoragePath($flat->plan),
+                        $this->normalizePublicStoragePath($flat->floor_position),
+                    ];
+                })
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            $deletedCount = 0;
+
+            DB::connection('mysql')->transaction(function () use ($ids, &$deletedCount) {
+                $deletedCount = Flat::query()
+                    ->whereIn('id', $ids)
+                    ->delete();
+            });
+
+            $this->deletePublicFiles($filesToDelete);
+
+            return back()->with('success', "Удалено квартир: {$deletedCount}");
+        } catch (Throwable $e) {
+            report($e);
+
+            return back()->with('error', 'Не удалось удалить выбранные квартиры. Попробуйте снова.');
         }
     }
 
@@ -201,63 +331,31 @@ class FlatController extends Controller
         }
     }
 
-    private function storeValidationRules(): array
+    private function validateBulkIds(Request $request): array
     {
-        return [
-            'building' => ['bail', 'required', 'integer', 'min:1'],
-            'floor' => ['bail', 'required', 'integer', 'min:1'],
-            'entrance_number' => ['bail', 'required', 'integer', 'min:1'],
-            'number' => ['bail', 'required', 'integer', 'min:1'],
-            'rooms_number' => ['bail', 'required', 'integer', Rule::in([0, 1, 2, 3, 4])],
-            'square' => ['bail', 'required', 'numeric', 'min:0'],
-            'living_square' => ['bail', 'required', 'numeric', 'min:0'],
-            'ceiling_height' => ['bail', 'required', 'numeric', 'min:0'],
-            'price_m2' => ['bail', 'required', 'integer', 'min:0'],
-            'price' => ['bail', 'required', 'integer', 'min:0'],
-            'finishing' => ['bail', 'required', 'string', 'max:255'],
-            'finish_date' => ['bail', 'required', 'date'],
-            'status' => ['bail', 'required', Rule::in(['available', 'sold', 'hidden'])],
-            'apartment_plan' => ['bail', 'nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
-            'floor_plan' => ['bail', 'nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
-        ];
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'integer', 'min:1', 'distinct'],
+        ]);
+
+        return collect($validated['ids'])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
     }
 
-    private function storeValidationMessages(): array
+    private function deletePublicFiles(array $paths): void
     {
-        return [
-            'required' => 'Поле «:attribute» обязательно.',
-            'integer' => 'Поле «:attribute» должно быть целым числом.',
-            'numeric' => 'Поле «:attribute» должно быть числом.',
-            'min.integer' => 'Поле «:attribute» не может быть меньше :min.',
-            'min.numeric' => 'Поле «:attribute» не может быть меньше :min.',
-            'max.string' => 'Поле «:attribute» не должно быть длиннее :max символов.',
-            'date' => 'Укажите корректную дату в поле «:attribute».',
-            'in' => 'Выберите корректное значение для поля «:attribute».',
-            'file' => 'Поле «:attribute» должно быть файлом.',
-            'mimes' => 'Поле «:attribute» поддерживает только JPG, JPEG, PNG, WEBP и SVG.',
-            'max.file' => 'Файл «:attribute» не должен превышать 5 МБ.',
-        ];
-    }
+        $paths = collect($paths)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
 
-    private function storeValidationAttributes(): array
-    {
-        return [
-            'building' => 'корпус',
-            'floor' => 'этаж',
-            'entrance_number' => 'подъезд',
-            'number' => 'номер квартиры',
-            'rooms_number' => 'количество комнат',
-            'square' => 'общая площадь',
-            'living_square' => 'жилая площадь',
-            'ceiling_height' => 'высота потолков',
-            'price_m2' => 'цена за кв.м.',
-            'price' => 'стоимость квартиры',
-            'finishing' => 'отделка',
-            'finish_date' => 'дата окончания строительства',
-            'status' => 'статус',
-            'apartment_plan' => 'план квартиры',
-            'floor_plan' => 'план этажа',
-        ];
+        if ($paths !== []) {
+            Storage::disk('public')->delete($paths);
+        }
     }
 
     private function makeTitle(int $building, int $number): string

@@ -1,13 +1,84 @@
-import { CheckCircle2, EyeOff, Trash2 } from 'lucide-react';
+import { router } from '@inertiajs/react';
+import { EyeOff, LoaderCircle, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 
 type Props = {
-    selectedCount: number;
+    selectedIds: number[];
+    onActionComplete: () => void;
 };
 
-export default function SelectedFlatsBar({ selectedCount }: Props) {
+type ActionType = 'hide' | 'delete' | null;
+
+export default function SelectedFlatsBar({
+    selectedIds,
+    onActionComplete,
+}: Props) {
+    const [processingAction, setProcessingAction] = useState<ActionType>(null);
+
+    const selectedCount = selectedIds.length;
+
     if (selectedCount <= 0) {
         return null;
     }
+
+    const isProcessing = processingAction !== null;
+
+    const handleBulkHide = () => {
+        if (isProcessing || selectedCount <= 0) {
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `Скрыть выбранные квартиры: ${selectedCount} шт.?`,
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setProcessingAction('hide');
+
+        router.patch(
+            route('admin.flats.bulkHide'),
+            { ids: selectedIds },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    onActionComplete();
+                },
+                onFinish: () => {
+                    setProcessingAction(null);
+                },
+            },
+        );
+    };
+
+    const handleBulkDelete = () => {
+        if (isProcessing || selectedCount <= 0) {
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `Удалить выбранные квартиры: ${selectedCount} шт.? Это действие необратимо.`,
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setProcessingAction('delete');
+
+        router.delete(route('admin.flats.bulkDestroy'), {
+            data: { ids: selectedIds },
+            preserveScroll: true,
+            onSuccess: () => {
+                onActionComplete();
+            },
+            onFinish: () => {
+                setProcessingAction(null);
+            },
+        });
+    };
 
     return (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
@@ -21,25 +92,29 @@ export default function SelectedFlatsBar({ selectedCount }: Props) {
 
                 <button
                     type="button"
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    disabled={isProcessing}
+                    onClick={handleBulkHide}
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                    <EyeOff className="h-4 w-4" />
+                    {processingAction === 'hide' ? (
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                    ) : (
+                        <EyeOff className="h-4 w-4" />
+                    )}
                     Скрыть
                 </button>
 
                 <button
                     type="button"
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    disabled={isProcessing}
+                    onClick={handleBulkDelete}
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-400 dark:hover:bg-red-950/40"
                 >
-                    <CheckCircle2 className="h-4 w-4" />
-                    Проданы
-                </button>
-
-                <button
-                    type="button"
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
-                >
-                    <Trash2 className="h-4 w-4" />
+                    {processingAction === 'delete' ? (
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                    ) : (
+                        <Trash2 className="h-4 w-4" />
+                    )}
                     Удалить
                 </button>
             </div>

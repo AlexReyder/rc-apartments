@@ -259,7 +259,10 @@ export default function AdminFlatsIndex({
                 )}
 
                 {filters.view === 'table' ? (
-                    <SelectedFlatsBar selectedCount={selectedIds.length} />
+                    <SelectedFlatsBar
+                        selectedIds={selectedIds}
+                        onActionComplete={() => setSelectedIds([])}
+                    />
                 ) : null}
             </div>
         </AdminLayout>
