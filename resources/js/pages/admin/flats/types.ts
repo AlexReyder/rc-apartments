@@ -10,7 +10,12 @@ export type Flat = {
     price: number;
     sold: 0 | 1 | 2;
     plan: string | null;
+    floor_plan: string | null;
     finishing: string | null;
+    living_square: number | null;
+    ceiling_height: number | null;
+    price_m2: number | null;
+    finish_date: string | null;
 };
 
 export type SortableColumn =

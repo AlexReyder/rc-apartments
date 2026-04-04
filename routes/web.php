@@ -25,6 +25,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/flats', [FlatController::class, 'index'])->name('flats.index');
     Route::post('/flats', [FlatController::class, 'store'])->name('flats.store');
+    Route::patch('/flats/{flat}', [FlatController::class, 'update'])->name('flats.update');
 
     Route::patch('/flats/bulk/hide', [FlatController::class, 'bulkHide'])->name('flats.bulkHide');
     Route::patch('/flats/bulk/sold', [FlatController::class, 'bulkMarkSold'])->name('flats.bulkMarkSold');
