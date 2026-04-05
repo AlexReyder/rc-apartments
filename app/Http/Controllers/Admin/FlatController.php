@@ -50,25 +50,7 @@ class FlatController extends Controller
             ->orderBy($sortBy, $sortDirection)
             ->paginate($perPage)
             ->withQueryString()
-            ->through(fn (Flat $flat) => [
-                'id' => $flat->id,
-                'slug' => $flat->slug,
-                'building' => $flat->building,
-                'entrance' => $flat->entrance_number,
-                'floor' => $flat->floor,
-                'number' => $flat->number,
-                'rooms' => $flat->rooms_number,
-                'square' => $flat->square,
-                'price' => $flat->price,
-                'sold' => (int) $flat->sold,
-                'plan' => $flat->plan,
-                'floor_plan' => $flat->floor_position,
-                'finishing' => $flat->finishing,
-                'living_square' => $flat->living_square,
-                'ceiling_height' => $flat->ceiling_height,
-                'price_m2' => $flat->price_m2,
-                'finish_date' => $flat->finish_date,
-            ]);
+            ->through(fn (Flat $flat) => $this->transformFlatForAdmin($flat));
 
         return Inertia::render('Admin/Flats/Index', [
             'filters' => [
@@ -92,7 +74,7 @@ class FlatController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate($this->createFlatValidationRules());
+        $validated = $request->validate($this->flatValidationRules());
 
         try {
             $apartmentPlanPath = $request->file('apartment_plan')?->store('apartments/plans', 'public');
@@ -102,7 +84,6 @@ class FlatController extends Controller
                 validated: $validated,
                 apartmentPlanPath: $apartmentPlanPath ? 'storage/'.$apartmentPlanPath : null,
                 floorPlanPath: $floorPlanPath ? 'storage/'.$floorPlanPath : null,
-                isCreate: true,
             ));
 
             return back()
@@ -120,7 +101,7 @@ class FlatController extends Controller
 
     public function update(Request $request, Flat $flat): RedirectResponse
     {
-        $validated = $request->validate($this->updateFlatValidationRules());
+        $validated = $request->validate($this->flatValidationRules(true));
 
         try {
             $nextApartmentPlanPath = $flat->plan;
@@ -155,7 +136,7 @@ class FlatController extends Controller
                 validated: $validated,
                 apartmentPlanPath: $nextApartmentPlanPath,
                 floorPlanPath: $nextFloorPlanPath,
-                isCreate: false,
+                isUpdate: true,
             ))->save();
 
             $this->deletePublicFiles($filesToDelete);
@@ -375,9 +356,9 @@ class FlatController extends Controller
         }
     }
 
-    private function createFlatValidationRules(): array
+    private function flatValidationRules(bool $includeRemoveFlags = false): array
     {
-        return [
+        $rules = [
             'building' => ['required', 'integer', 'min:1'],
             'floor' => ['required', 'integer', 'min:1'],
             'entrance_number' => ['required', 'integer', 'min:1'],
@@ -388,67 +369,48 @@ class FlatController extends Controller
             'ceiling_height' => ['required', 'numeric', 'min:0'],
             'price_m2' => ['required', 'integer', 'min:0'],
             'price' => ['required', 'integer', 'min:0'],
+            'action' => ['required', 'boolean'],
+            'action_price_m2' => [
+                'nullable',
+                'integer',
+                'min:0',
+                Rule::requiredIf(request()->boolean('action')),
+            ],
             'finishing' => ['required', 'string', 'max:255'],
             'finish_date' => ['required', 'date'],
             'status' => ['required', Rule::in(['available', 'sold', 'hidden'])],
             'apartment_plan' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
             'floor_plan' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
         ];
-    }
 
-    private function updateFlatValidationRules(): array
-    {
-        return [
-            'building' => ['required', 'integer', 'min:1'],
-            'floor' => ['required', 'integer', 'min:1'],
-            'entrance_number' => ['nullable', 'integer', 'min:1'],
-            'number' => ['required', 'integer', 'min:1'],
-            'rooms_number' => ['required', 'integer', Rule::in([0, 1, 2, 3, 4])],
-            'square' => ['required', 'numeric', 'min:0'],
-            'living_square' => ['nullable', 'numeric', 'min:0'],
-            'ceiling_height' => ['nullable', 'numeric', 'min:0'],
-            'price_m2' => ['nullable', 'integer', 'min:0'],
-            'price' => ['required', 'integer', 'min:0'],
-            'finishing' => ['nullable', 'string', 'max:255'],
-            'finish_date' => ['nullable', 'date'],
-            'status' => ['required', Rule::in(['available', 'sold', 'hidden'])],
-            'apartment_plan' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
-            'floor_plan' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
-            'remove_apartment_plan' => ['nullable', 'boolean'],
-            'remove_floor_plan' => ['nullable', 'boolean'],
-        ];
+        if ($includeRemoveFlags) {
+            $rules['remove_apartment_plan'] = ['nullable', 'boolean'];
+            $rules['remove_floor_plan'] = ['nullable', 'boolean'];
+        }
+
+        return $rules;
     }
 
     private function makeFlatPayload(
         array $validated,
         ?string $apartmentPlanPath,
         ?string $floorPlanPath,
-        bool $isCreate = false,
+        bool $isUpdate = false,
     ): array {
         $building = (int) $validated['building'];
         $floor = (int) $validated['floor'];
-        $entrance = array_key_exists('entrance_number', $validated) && $validated['entrance_number'] !== null && $validated['entrance_number'] !== ''
-            ? (int) $validated['entrance_number']
-            : null;
+        $entrance = (int) $validated['entrance_number'];
         $number = (int) $validated['number'];
         $rooms = (int) $validated['rooms_number'];
         $square = round((float) $validated['square'], 2);
-        $livingSquare = array_key_exists('living_square', $validated) && $validated['living_square'] !== null && $validated['living_square'] !== ''
-            ? round((float) $validated['living_square'], 2)
-            : null;
-        $ceilingHeight = array_key_exists('ceiling_height', $validated) && $validated['ceiling_height'] !== null && $validated['ceiling_height'] !== ''
-            ? round((float) $validated['ceiling_height'], 2)
-            : null;
-        $priceM2 = array_key_exists('price_m2', $validated) && $validated['price_m2'] !== null && $validated['price_m2'] !== ''
-            ? (int) $validated['price_m2']
-            : null;
+        $livingSquare = round((float) $validated['living_square'], 2);
+        $ceilingHeight = round((float) $validated['ceiling_height'], 2);
+        $priceM2 = (int) $validated['price_m2'];
         $price = (int) $validated['price'];
-        $finishDate = array_key_exists('finish_date', $validated) && $validated['finish_date'] !== ''
-            ? $validated['finish_date']
-            : null;
-        $finishing = array_key_exists('finishing', $validated) && $validated['finishing'] !== null && trim((string) $validated['finishing']) !== ''
-            ? trim((string) $validated['finishing'])
-            : null;
+        $actionEnabled = filter_var($validated['action'], FILTER_VALIDATE_BOOLEAN) === true;
+        $actionPriceM2 = $actionEnabled ? (int) $validated['action_price_m2'] : 0;
+        $finishDate = $validated['finish_date'];
+        $finishing = trim((string) $validated['finishing']);
 
         $soldStatus = match ($validated['status']) {
             'available' => 0,
@@ -471,11 +433,12 @@ class FlatController extends Controller
             'number' => $number,
             'price' => $price,
             'price_m2' => $priceM2,
+            'action' => $actionEnabled ? 1 : 0,
+            'action_price_m2' => $actionPriceM2,
             'floor_position' => $floorPlanPath,
             'finish_date' => $finishDate,
             'finishing' => $finishing,
-            'action' => 0,
-            'action_price_m2' => 0,
+            'action_price_m2' => $actionPriceM2,
             'title' => $this->makeTitle($building, $number),
             'description' => $this->makeDescription(
                 $building,
@@ -487,11 +450,64 @@ class FlatController extends Controller
             ),
         ];
 
-        if ($isCreate) {
+        if (! $isUpdate) {
             $payload['created_at'] = now();
         }
 
         return $payload;
+    }
+
+    private function transformFlatForAdmin(Flat $flat): array
+    {
+        return [
+            'id' => $flat->id,
+            'slug' => $flat->slug,
+            'building' => (int) $flat->building,
+            'entrance' => $flat->entrance_number !== null ? (int) $flat->entrance_number : null,
+            'floor' => (int) $flat->floor,
+            'number' => (int) $flat->number,
+            'rooms' => (int) $flat->rooms_number,
+            'square' => (float) $flat->square,
+            'price' => (int) $flat->price,
+            'price_m2' => $flat->price_m2 !== null ? (int) $flat->price_m2 : null,
+            'action' => isset($flat->action) ? (int) $flat->action : 0,
+            'action_price_m2' => $flat->action_price_m2 !== null ? (int) $flat->action_price_m2 : null,
+            'display_price' => $this->resolveDisplayPrice($flat),
+            'display_price_m2' => $this->resolveDisplayPricePerSquare($flat),
+            'sold' => (int) $flat->sold,
+            'plan' => $flat->plan,
+            'floor_plan' => $flat->floor_position,
+            'finishing' => $flat->finishing,
+            'living_square' => $flat->living_square !== null ? (float) $flat->living_square : null,
+            'ceiling_height' => $flat->ceiling_height !== null ? (float) $flat->ceiling_height : null,
+            'finish_date' => $flat->finish_date,
+        ];
+    }
+
+    private function resolveDisplayPrice(Flat $flat): int
+    {
+        if ((int) ($flat->action ?? 0) === 1) {
+            return $this->calculateTotalPrice(
+                (int) ($flat->action_price_m2 ?? 0),
+                (float) $flat->square,
+            );
+        }
+
+        return (int) $flat->price;
+    }
+
+    private function resolveDisplayPricePerSquare(Flat $flat): ?int
+    {
+        if ((int) ($flat->action ?? 0) === 1) {
+            return isset($flat->action_price_m2) ? (int) $flat->action_price_m2 : null;
+        }
+
+        return $flat->price_m2 !== null ? (int) $flat->price_m2 : null;
+    }
+
+    private function calculateTotalPrice(int $pricePerSquare, float $square): int
+    {
+        return (int) round($pricePerSquare * $square);
     }
 
     private function validateBulkIds(Request $request): array
@@ -533,27 +549,20 @@ class FlatController extends Controller
     private function makeDescription(
         int $building,
         int $number,
-        ?int $entrance,
+        int $entrance,
         int $floor,
         int $rooms,
         float $square,
     ): string {
-        $parts = [
-            sprintf('Квартира в ЖК «Орловский Бульвар», Гатчина.'),
-            sprintf('Корпус: %d.', $building),
-            sprintf('Номер: %d.', $number),
-        ];
-
-        if ($entrance !== null) {
-            $parts[] = sprintf('Подъезд: %d.', $entrance);
-        }
-
-        $parts[] = sprintf('Этаж: %d.', $floor);
-        $parts[] = sprintf('Количество комнат: %d.', $rooms);
-        $parts[] = sprintf('Площадь: %.2f.', $square);
-        $parts[] = 'Подробности на сайте';
-
-        return implode(' ', $parts);
+        return sprintf(
+            'Квартира в ЖК «Орловский Бульвар», Гатчина. Корпус: %d. Номер: %d. Подъезд: %d. Этаж: %d. Количество комнат: %d. Площадь: %.2f. Подробности на сайте',
+            $building,
+            $number,
+            $entrance,
+            $floor,
+            $rooms,
+            $square,
+        );
     }
 
     private function distinctIntegerValues(string $column): array

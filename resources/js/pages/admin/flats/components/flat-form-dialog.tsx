@@ -1,27 +1,16 @@
 import { useForm, usePage } from '@inertiajs/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { z } from 'zod';
 
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import FlatImageUploadField from '@/pages/Admin/Flats/components/flat-image-upload-field';
 import type { Flat } from '@/pages/Admin/Flats/types';
+import { priceFormatter } from '@/pages/Admin/Flats/utils';
 
 type Props = {
     mode: 'create' | 'edit';
@@ -52,6 +41,8 @@ type FlatFormData = {
     ceiling_height: string;
     price_m2: string;
     price: string;
+    action: '0' | '1';
+    action_price_m2: string;
     finishing: string;
     finish_date: string;
     status: 'available' | 'sold' | 'hidden';
@@ -73,6 +64,8 @@ type FormField =
     | 'ceiling_height'
     | 'price_m2'
     | 'price'
+    | 'action'
+    | 'action_price_m2'
     | 'finishing'
     | 'finish_date'
     | 'status'
@@ -85,6 +78,7 @@ type FormErrors = Partial<Record<FormField, string>>;
 
 const ROOM_VALUES = ['0', '1', '2', '3', '4'] as const;
 const STATUS_VALUES = ['available', 'sold', 'hidden'] as const;
+const AUCTION_VALUES = ['0', '1'] as const;
 const ALLOWED_FILE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'svg']);
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
@@ -97,6 +91,30 @@ const integerFieldSchema = (label: string, min = 1) =>
                 code: z.ZodIssueCode.custom,
                 message: `Заполните поле «${label}».`,
             });
+            return;
+        }
+
+        if (!/^\d+$/.test(normalized)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: `Поле «${label}» должно быть целым числом.`,
+            });
+            return;
+        }
+
+        if (Number(normalized) < min) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: `Поле «${label}» не может быть меньше ${min}.`,
+            });
+        }
+    });
+
+const optionalIntegerFieldSchema = (label: string, min = 0) =>
+    z.string().superRefine((value, ctx) => {
+        const normalized = value.trim();
+
+        if (normalized === '') {
             return;
         }
 
@@ -184,10 +202,7 @@ const dateFieldSchema = (label: string) =>
         }
     });
 
-const enumFieldSchema = <T extends readonly [string, ...string[]]>(
-    values: T,
-    label: string,
-) =>
+const enumFieldSchema = <T extends readonly [string, ...string[]]>(values: T, label: string) =>
     z.string().superRefine((value, ctx) => {
         if (!values.includes(value)) {
             ctx.addIssue({
@@ -198,36 +213,39 @@ const enumFieldSchema = <T extends readonly [string, ...string[]]>(
     });
 
 const fileFieldSchema = (label: string) =>
-    z.unknown().nullable().superRefine((value, ctx) => {
-        if (value === null || value === undefined) {
-            return;
-        }
+    z
+        .unknown()
+        .nullable()
+        .superRefine((value, ctx) => {
+            if (value === null || value === undefined) {
+                return;
+            }
 
-        if (typeof File === 'undefined' || !(value instanceof File)) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: `Поле «${label}» должно быть файлом.`,
-            });
-            return;
-        }
+            if (typeof File === 'undefined' || !(value instanceof File)) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: `Поле «${label}» должно быть файлом.`,
+                });
+                return;
+            }
 
-        const extension = value.name.split('.').pop()?.toLowerCase();
+            const extension = value.name.split('.').pop()?.toLowerCase();
 
-        if (!extension || !ALLOWED_FILE_EXTENSIONS.has(extension)) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: `Поле «${label}» поддерживает только JPG, JPEG, PNG, WEBP и SVG.`,
-            });
-            return;
-        }
+            if (!extension || !ALLOWED_FILE_EXTENSIONS.has(extension)) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: `Поле «${label}» поддерживает только JPG, JPEG, PNG, WEBP и SVG.`,
+                });
+                return;
+            }
 
-        if (value.size > MAX_FILE_SIZE_BYTES) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: `Файл «${label}» не должен превышать 5 МБ.`,
-            });
-        }
-    });
+            if (value.size > MAX_FILE_SIZE_BYTES) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: `Файл «${label}» не должен превышать 5 МБ.`,
+                });
+            }
+        });
 
 const fieldSchemas = {
     building: integerFieldSchema('Корпус', 1),
@@ -240,6 +258,8 @@ const fieldSchemas = {
     ceiling_height: numericFieldSchema('Высота потолков', 0),
     price_m2: integerFieldSchema('Цена за кв.м.', 0),
     price: integerFieldSchema('Стоимость квартиры', 0),
+    action: enumFieldSchema(AUCTION_VALUES, 'Аукцион'),
+    action_price_m2: optionalIntegerFieldSchema('Аукционная цена за кв.м.', 0),
     finishing: textFieldSchema('Отделка', 255),
     finish_date: dateFieldSchema('Дата окончания строительства'),
     status: enumFieldSchema(STATUS_VALUES, 'Статус'),
@@ -247,7 +267,15 @@ const fieldSchemas = {
     floor_plan: fileFieldSchema('План этажа'),
 };
 
-const flatFormSchema = z.object(fieldSchemas);
+const flatFormSchema = z.object(fieldSchemas).superRefine((data, ctx) => {
+    if (data.action === '1' && data.action_price_m2.trim() === '') {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['action_price_m2'],
+            message: 'Заполните поле «Аукционная цена за кв.м.».',
+        });
+    }
+});
 
 function FieldError({ message }: { message?: string }) {
     if (!message) {
@@ -279,6 +307,57 @@ function normalizeDecimalValue(value: string): string {
     return `${integerPart}.${fractionPart}`;
 }
 
+function parseIntegerValue(value: string): number | null {
+    const normalized = value.trim();
+
+    if (normalized === '' || !/^\d+$/.test(normalized)) {
+        return null;
+    }
+
+    return Number(normalized);
+}
+
+function parseDecimalValue(value: string): number | null {
+    const normalized = value.replace(',', '.').trim();
+
+    if (normalized === '' || !/^(\d+(\.\d+)?|\.\d+)$/.test(normalized)) {
+        return null;
+    }
+
+    return Number(normalized);
+}
+
+function calculateTotalPriceValue(pricePerSquare: string, square: string): string {
+    const parsedPricePerSquare = parseIntegerValue(pricePerSquare);
+    const parsedSquare = parseDecimalValue(square);
+
+    if (parsedPricePerSquare === null || parsedSquare === null) {
+        return '';
+    }
+
+    return String(Math.round(parsedPricePerSquare * parsedSquare));
+}
+
+function formatCurrencyPreview(value: string): string {
+    const parsedValue = parseIntegerValue(value);
+
+    if (parsedValue === null) {
+        return '—';
+    }
+
+    return `${priceFormatter.format(parsedValue)} ₽`;
+}
+
+function formatCurrencyPerSquarePreview(value: string): string {
+    const parsedValue = parseIntegerValue(value);
+
+    if (parsedValue === null) {
+        return '—';
+    }
+
+    return `${priceFormatter.format(parsedValue)} ₽/м²`;
+}
+
 function soldToStatus(sold?: Flat['sold'] | null): FlatFormData['status'] {
     if (sold === 1) {
         return 'sold';
@@ -307,10 +386,7 @@ function toPublicUrl(path: string | null | undefined): string | null {
     return `/${path.replace(/^\/+/, '')}`;
 }
 
-function buildInitialData(
-    mode: 'create' | 'edit',
-    flat?: Flat | null,
-): FlatFormData {
+function buildInitialData(mode: 'create' | 'edit', flat?: Flat | null): FlatFormData {
     return {
         building: toStringValue(flat?.building),
         floor: toStringValue(flat?.floor),
@@ -322,6 +398,8 @@ function buildInitialData(
         ceiling_height: toStringValue(flat?.ceiling_height),
         price_m2: toStringValue(flat?.price_m2),
         price: toStringValue(flat?.price),
+        action: flat?.action === 1 ? '1' : '0',
+        action_price_m2: toStringValue(flat?.action_price_m2),
         finishing: flat?.finishing ?? '',
         finish_date: flat?.finish_date ? flat.finish_date.slice(0, 10) : '',
         status: soldToStatus(flat?.sold),
@@ -331,6 +409,20 @@ function buildInitialData(
         remove_floor_plan: '0',
         ...(mode === 'edit' ? { _method: 'patch' as const } : {}),
     };
+}
+
+function isPriceManuallyOverridden(data: Pick<FlatFormData, 'price' | 'price_m2' | 'square'>): boolean {
+    const calculatedPrice = calculateTotalPriceValue(data.price_m2, data.square);
+
+    if (data.price.trim() === '') {
+        return false;
+    }
+
+    if (calculatedPrice === '') {
+        return false;
+    }
+
+    return data.price !== calculatedPrice;
 }
 
 function validateField(field: FormField, value: FlatFormData[FormField]) {
@@ -361,22 +453,19 @@ function validateForm(data: FlatFormData): FormErrors {
     }, {});
 }
 
-export default function FlatFormDialog({
-    mode,
-    open,
-    onOpenChange,
-    flat = null,
-}: Props) {
+export default function FlatFormDialog({ mode, open, onOpenChange, flat = null }: Props) {
     const page = usePage<FlashProps>();
     const flashCreatedFlat = page.props.flash?.createdFlat ?? null;
 
     const [createdFlat, setCreatedFlat] = useState<CreatedFlat>(null);
+    const [priceTouched, setPriceTouched] = useState(false);
 
     const apartmentPlanInputRef = useRef<HTMLInputElement | null>(null);
     const floorPlanInputRef = useRef<HTMLInputElement | null>(null);
 
-    const { data, setData, post, processing, errors, reset, clearErrors, setError } =
-        useForm<FlatFormData>(buildInitialData(mode, mode === 'edit' ? flat : null));
+    const { data, setData, post, processing, errors, reset, clearErrors, setError } = useForm<FlatFormData>(
+        buildInitialData(mode, mode === 'edit' ? flat : null),
+    );
 
     const resetFileInputs = () => {
         if (apartmentPlanInputRef.current) {
@@ -389,10 +478,14 @@ export default function FlatFormDialog({
     };
 
     const replaceFormData = (nextData: FlatFormData) => {
-        reset();
         (Object.keys(nextData) as DataField[]).forEach((field) => {
             setData(field, nextData[field]);
         });
+    };
+
+    const syncFormWithData = (nextData: FlatFormData) => {
+        replaceFormData(nextData);
+        setPriceTouched(isPriceManuallyOverridden(nextData));
     };
 
     useEffect(() => {
@@ -404,9 +497,10 @@ export default function FlatFormDialog({
 
     useEffect(() => {
         if (mode === 'edit' && open) {
+            const nextData = buildInitialData('edit', flat);
             clearErrors();
             setCreatedFlat(null);
-            replaceFormData(buildInitialData('edit', flat));
+            syncFormWithData(nextData);
             resetFileInputs();
         }
     }, [mode, open, flat, clearErrors]);
@@ -428,6 +522,24 @@ export default function FlatFormDialog({
     }, [mode]);
 
     const syncFieldError = (field: FormField, nextData: FlatFormData) => {
+        if (field === 'action' || field === 'action_price_m2') {
+            const nextErrors = validateForm(nextData);
+
+            if (nextErrors.action) {
+                setError('action', nextErrors.action);
+            } else {
+                clearErrors('action');
+            }
+
+            if (nextErrors.action_price_m2) {
+                setError('action_price_m2', nextErrors.action_price_m2);
+            } else {
+                clearErrors('action_price_m2');
+            }
+
+            return;
+        }
+
         const message = validateField(field, nextData[field]);
 
         if (message) {
@@ -441,18 +553,12 @@ export default function FlatFormDialog({
     const applyClientErrors = (nextErrors: FormErrors) => {
         clearErrors();
 
-        (Object.entries(nextErrors) as Array<[FormField, string]>).forEach(
-            ([field, message]) => {
-                setError(field, message);
-            },
-        );
+        (Object.entries(nextErrors) as Array<[FormField, string]>).forEach(([field, message]) => {
+            setError(field, message);
+        });
     };
 
-    const updateField = <TField extends FormField>(
-        field: TField,
-        value: any,
-        validateOnChange = Boolean(errors[field]),
-    ) => {
+    const updateField = <TField extends FormField>(field: TField, value: any, validateOnChange = Boolean(errors[field])) => {
         const nextData = {
             ...data,
             [field]: value,
@@ -465,8 +571,62 @@ export default function FlatFormDialog({
         }
     };
 
-    const getRemoveField = (field: FileField) =>
-        field === 'apartment_plan' ? 'remove_apartment_plan' : 'remove_floor_plan';
+    const updateCalculatedPriceSourceField = (field: 'price_m2' | 'square', value: string) => {
+        const nextData = {
+            ...data,
+            [field]: value,
+        } as FlatFormData;
+
+        if (!priceTouched) {
+            nextData.price = calculateTotalPriceValue(nextData.price_m2, nextData.square);
+        }
+
+        setData(field, value);
+
+        if (!priceTouched) {
+            setData('price', nextData.price);
+        }
+
+        if (errors[field]) {
+            syncFieldError(field, nextData);
+        }
+
+        if (!priceTouched && errors.price) {
+            syncFieldError('price', nextData);
+        }
+    };
+
+    const handlePriceChange = (value: string) => {
+        const normalizedValue = normalizeIntegerValue(value);
+
+        const nextData = {
+            ...data,
+            price: normalizedValue,
+        } as FlatFormData;
+
+        setPriceTouched(isPriceManuallyOverridden(nextData));
+        updateField('price', normalizedValue, true);
+    };
+
+    const handleActionCheckedChange = (checked: boolean | 'indeterminate') => {
+        const nextValue: FlatFormData['action'] = checked === true ? '1' : '0';
+        const nextData = {
+            ...data,
+            action: nextValue,
+        } as FlatFormData;
+
+        setData('action', nextValue);
+
+        if (nextValue === '0') {
+            clearErrors('action_price_m2');
+        }
+
+        if (errors.action || errors.action_price_m2) {
+            syncFieldError('action', nextData);
+        }
+    };
+
+    const getRemoveField = (field: FileField) => (field === 'apartment_plan' ? 'remove_apartment_plan' : 'remove_floor_plan');
 
     const getExistingImagePath = (field: FileField) => {
         if (!flat) {
@@ -537,17 +697,19 @@ export default function FlatFormDialog({
 
     const handleClose = (nextOpen: boolean) => {
         if (!nextOpen) {
+            const nextData = buildInitialData(mode, mode === 'edit' ? flat : null);
+
             setCreatedFlat(null);
             clearErrors();
             reset();
-            replaceFormData(buildInitialData(mode, mode === 'edit' ? flat : null));
+            syncFormWithData(nextData);
             resetFileInputs();
         }
 
         onOpenChange(nextOpen);
     };
 
-    const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
         const clientErrors = validateForm(data);
@@ -563,9 +725,11 @@ export default function FlatFormDialog({
                 forceFormData: true,
                 preserveScroll: true,
                 onSuccess: () => {
+                    const nextData = buildInitialData('create');
+
                     clearErrors();
                     reset();
-                    replaceFormData(buildInitialData('create'));
+                    syncFormWithData(nextData);
                     resetFileInputs();
                 },
                 onError: () => {
@@ -594,15 +758,16 @@ export default function FlatFormDialog({
         });
     };
 
-    const apartmentPlanPreviewUrl =
-        data.remove_apartment_plan === '1'
-            ? null
-            : toPublicUrl(getExistingImagePath('apartment_plan'));
+    const apartmentPlanPreviewUrl = data.remove_apartment_plan === '1' ? null : toPublicUrl(getExistingImagePath('apartment_plan'));
 
-    const floorPlanPreviewUrl =
-        data.remove_floor_plan === '1'
-            ? null
-            : toPublicUrl(getExistingImagePath('floor_plan'));
+    const floorPlanPreviewUrl = data.remove_floor_plan === '1' ? null : toPublicUrl(getExistingImagePath('floor_plan'));
+
+    const baseCalculatedPrice = calculateTotalPriceValue(data.price_m2, data.square);
+    const auctionCalculatedPrice = calculateTotalPriceValue(data.action_price_m2, data.square);
+
+    const effectiveDisplayedPrice = data.action === '1' ? auctionCalculatedPrice : data.price || baseCalculatedPrice;
+
+    const effectiveDisplayedPricePerSquare = data.action === '1' ? data.action_price_m2 : data.price_m2;
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
@@ -622,16 +787,9 @@ export default function FlatFormDialog({
                                 inputMode="numeric"
                                 pattern="[0-9]*"
                                 value={data.building}
-                                onChange={(event) =>
-                                    updateField(
-                                        'building',
-                                        normalizeIntegerValue(event.target.value),
-                                    )
-                                }
+                                onChange={(event) => updateField('building', normalizeIntegerValue(event.target.value))}
                                 aria-invalid={Boolean(errors.building)}
-                                className={cn(
-                                    errors.building && 'border-red-500 focus-visible:ring-red-500',
-                                )}
+                                className={cn(errors.building && 'border-red-500 focus-visible:ring-red-500')}
                             />
                             <FieldError message={errors.building} />
                         </div>
@@ -644,13 +802,9 @@ export default function FlatFormDialog({
                                 inputMode="numeric"
                                 pattern="[0-9]*"
                                 value={data.floor}
-                                onChange={(event) =>
-                                    updateField('floor', normalizeIntegerValue(event.target.value))
-                                }
+                                onChange={(event) => updateField('floor', normalizeIntegerValue(event.target.value))}
                                 aria-invalid={Boolean(errors.floor)}
-                                className={cn(
-                                    errors.floor && 'border-red-500 focus-visible:ring-red-500',
-                                )}
+                                className={cn(errors.floor && 'border-red-500 focus-visible:ring-red-500')}
                             />
                             <FieldError message={errors.floor} />
                         </div>
@@ -663,17 +817,9 @@ export default function FlatFormDialog({
                                 inputMode="numeric"
                                 pattern="[0-9]*"
                                 value={data.entrance_number}
-                                onChange={(event) =>
-                                    updateField(
-                                        'entrance_number',
-                                        normalizeIntegerValue(event.target.value),
-                                    )
-                                }
+                                onChange={(event) => updateField('entrance_number', normalizeIntegerValue(event.target.value))}
                                 aria-invalid={Boolean(errors.entrance_number)}
-                                className={cn(
-                                    errors.entrance_number &&
-                                        'border-red-500 focus-visible:ring-red-500',
-                                )}
+                                className={cn(errors.entrance_number && 'border-red-500 focus-visible:ring-red-500')}
                             />
                             <FieldError message={errors.entrance_number} />
                         </div>
@@ -686,28 +832,19 @@ export default function FlatFormDialog({
                                 inputMode="numeric"
                                 pattern="[0-9]*"
                                 value={data.number}
-                                onChange={(event) =>
-                                    updateField('number', normalizeIntegerValue(event.target.value))
-                                }
+                                onChange={(event) => updateField('number', normalizeIntegerValue(event.target.value))}
                                 aria-invalid={Boolean(errors.number)}
-                                className={cn(
-                                    errors.number && 'border-red-500 focus-visible:ring-red-500',
-                                )}
+                                className={cn(errors.number && 'border-red-500 focus-visible:ring-red-500')}
                             />
                             <FieldError message={errors.number} />
                         </div>
 
                         <div>
                             <Label>Количество комнат</Label>
-                            <Select
-                                value={data.rooms_number}
-                                onValueChange={(value) => updateField('rooms_number', value, true)}
-                            >
+                            <Select value={data.rooms_number} onValueChange={(value) => updateField('rooms_number', value, true)}>
                                 <SelectTrigger
                                     aria-invalid={Boolean(errors.rooms_number)}
-                                    className={cn(
-                                        errors.rooms_number && 'border-red-500 focus:ring-red-500',
-                                    )}
+                                    className={cn(errors.rooms_number && 'border-red-500 focus:ring-red-500')}
                                 >
                                     <SelectValue placeholder="Выберите количество комнат" />
                                 </SelectTrigger>
@@ -729,13 +866,9 @@ export default function FlatFormDialog({
                                 type="text"
                                 inputMode="decimal"
                                 value={data.square}
-                                onChange={(event) =>
-                                    updateField('square', normalizeDecimalValue(event.target.value))
-                                }
+                                onChange={(event) => updateCalculatedPriceSourceField('square', normalizeDecimalValue(event.target.value))}
                                 aria-invalid={Boolean(errors.square)}
-                                className={cn(
-                                    errors.square && 'border-red-500 focus-visible:ring-red-500',
-                                )}
+                                className={cn(errors.square && 'border-red-500 focus-visible:ring-red-500')}
                             />
                             <FieldError message={errors.square} />
                         </div>
@@ -747,17 +880,9 @@ export default function FlatFormDialog({
                                 type="text"
                                 inputMode="decimal"
                                 value={data.living_square}
-                                onChange={(event) =>
-                                    updateField(
-                                        'living_square',
-                                        normalizeDecimalValue(event.target.value),
-                                    )
-                                }
+                                onChange={(event) => updateField('living_square', normalizeDecimalValue(event.target.value))}
                                 aria-invalid={Boolean(errors.living_square)}
-                                className={cn(
-                                    errors.living_square &&
-                                        'border-red-500 focus-visible:ring-red-500',
-                                )}
+                                className={cn(errors.living_square && 'border-red-500 focus-visible:ring-red-500')}
                             />
                             <FieldError message={errors.living_square} />
                         </div>
@@ -769,17 +894,9 @@ export default function FlatFormDialog({
                                 type="text"
                                 inputMode="decimal"
                                 value={data.ceiling_height}
-                                onChange={(event) =>
-                                    updateField(
-                                        'ceiling_height',
-                                        normalizeDecimalValue(event.target.value),
-                                    )
-                                }
+                                onChange={(event) => updateField('ceiling_height', normalizeDecimalValue(event.target.value))}
                                 aria-invalid={Boolean(errors.ceiling_height)}
-                                className={cn(
-                                    errors.ceiling_height &&
-                                        'border-red-500 focus-visible:ring-red-500',
-                                )}
+                                className={cn(errors.ceiling_height && 'border-red-500 focus-visible:ring-red-500')}
                             />
                             <FieldError message={errors.ceiling_height} />
                         </div>
@@ -792,16 +909,9 @@ export default function FlatFormDialog({
                                 inputMode="numeric"
                                 pattern="[0-9]*"
                                 value={data.price_m2}
-                                onChange={(event) =>
-                                    updateField(
-                                        'price_m2',
-                                        normalizeIntegerValue(event.target.value),
-                                    )
-                                }
+                                onChange={(event) => updateCalculatedPriceSourceField('price_m2', normalizeIntegerValue(event.target.value))}
                                 aria-invalid={Boolean(errors.price_m2)}
-                                className={cn(
-                                    errors.price_m2 && 'border-red-500 focus-visible:ring-red-500',
-                                )}
+                                className={cn(errors.price_m2 && 'border-red-500 focus-visible:ring-red-500')}
                             />
                             <FieldError message={errors.price_m2} />
                         </div>
@@ -814,15 +924,75 @@ export default function FlatFormDialog({
                                 inputMode="numeric"
                                 pattern="[0-9]*"
                                 value={data.price}
-                                onChange={(event) =>
-                                    updateField('price', normalizeIntegerValue(event.target.value))
-                                }
+                                onChange={(event) => handlePriceChange(event.target.value)}
                                 aria-invalid={Boolean(errors.price)}
-                                className={cn(
-                                    errors.price && 'border-red-500 focus-visible:ring-red-500',
-                                )}
+                                className={cn(errors.price && 'border-red-500 focus-visible:ring-red-500')}
                             />
                             <FieldError message={errors.price} />
+                            <p className="text-muted-foreground mt-1 text-xs">
+                                {priceTouched
+                                    ? 'Цена задана вручную и не будет пересчитываться автоматически.'
+                                    : 'Цена рассчитывается автоматически по формуле: цена за кв.м. × общая площадь.'}
+                            </p>
+                        </div>
+
+                        <div className="rounded-xl border p-4 md:col-span-2 xl:col-span-3">
+                            <div className="flex items-start gap-3">
+                                <Checkbox id={`${mode}-action`} checked={data.action === '1'} onCheckedChange={handleActionCheckedChange} />
+
+                                <div className="space-y-1">
+                                    <Label htmlFor={`${mode}-action`} className="cursor-pointer text-sm font-medium">
+                                        Аукцион
+                                    </Label>
+                                    <p className="text-muted-foreground text-xs">
+                                        При включении аукциона в таблице и списке будет показываться аукционная цена, рассчитанная по формуле:
+                                        аукционная цена за кв.м. × общая площадь.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <FieldError message={errors.action} />
+
+                            {data.action === '1' ? (
+                                <div className="mt-4 max-w-sm">
+                                    <Label htmlFor={`${mode}-action_price_m2`}>Аукционная цена за кв.м.</Label>
+                                    <Input
+                                        id={`${mode}-action_price_m2`}
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        value={data.action_price_m2}
+                                        onChange={(event) =>
+                                            updateField('action_price_m2', normalizeIntegerValue(event.target.value), Boolean(errors.action_price_m2))
+                                        }
+                                        aria-invalid={Boolean(errors.action_price_m2)}
+                                        className={cn(errors.action_price_m2 && 'border-red-500 focus-visible:ring-red-500')}
+                                    />
+                                    <FieldError message={errors.action_price_m2} />
+                                </div>
+                            ) : null}
+
+                            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                <div className="bg-muted/40 rounded-lg p-3">
+                                    <div className="text-muted-foreground text-xs tracking-wide uppercase">Базовая цена по формуле</div>
+                                    <div className="mt-1 text-sm font-medium">{formatCurrencyPreview(baseCalculatedPrice)}</div>
+                                </div>
+
+                                <div className="bg-muted/40 rounded-lg p-3">
+                                    <div className="text-muted-foreground text-xs tracking-wide uppercase">Обычная цена за кв.м.</div>
+                                    <div className="mt-1 text-sm font-medium">{formatCurrencyPerSquarePreview(data.price_m2)}</div>
+                                </div>
+
+                                <div className="bg-muted/40 rounded-lg p-3">
+                                    <div className="text-muted-foreground text-xs tracking-wide uppercase">Отображаемая цена</div>
+                                    <div className="mt-1 text-sm font-medium">{formatCurrencyPreview(effectiveDisplayedPrice)}</div>
+                                </div>
+
+                                <div className="bg-muted/40 rounded-lg p-3">
+                                    <div className="text-muted-foreground text-xs tracking-wide uppercase">Отображаемая цена за кв.м.</div>
+                                    <div className="mt-1 text-sm font-medium">{formatCurrencyPerSquarePreview(effectiveDisplayedPricePerSquare)}</div>
+                                </div>
+                            </div>
                         </div>
 
                         <div>
@@ -833,48 +1003,30 @@ export default function FlatFormDialog({
                                 value={data.finishing}
                                 onChange={(event) => updateField('finishing', event.target.value)}
                                 aria-invalid={Boolean(errors.finishing)}
-                                className={cn(
-                                    errors.finishing && 'border-red-500 focus-visible:ring-red-500',
-                                )}
+                                className={cn(errors.finishing && 'border-red-500 focus-visible:ring-red-500')}
                             />
                             <FieldError message={errors.finishing} />
                         </div>
 
                         <div>
-                            <Label htmlFor={`${mode}-finish_date`}>
-                                Дата окончания строительства
-                            </Label>
+                            <Label htmlFor={`${mode}-finish_date`}>Дата окончания строительства</Label>
                             <Input
                                 id={`${mode}-finish_date`}
                                 type="date"
                                 value={data.finish_date}
                                 onChange={(event) => updateField('finish_date', event.target.value)}
                                 aria-invalid={Boolean(errors.finish_date)}
-                                className={cn(
-                                    errors.finish_date &&
-                                        'border-red-500 focus-visible:ring-red-500',
-                                )}
+                                className={cn(errors.finish_date && 'border-red-500 focus-visible:ring-red-500')}
                             />
                             <FieldError message={errors.finish_date} />
                         </div>
 
                         <div>
                             <Label>Статус</Label>
-                            <Select
-                                value={data.status}
-                                onValueChange={(value) =>
-                                    updateField(
-                                        'status',
-                                        value as FlatFormData['status'],
-                                        true,
-                                    )
-                                }
-                            >
+                            <Select value={data.status} onValueChange={(value) => updateField('status', value as FlatFormData['status'], true)}>
                                 <SelectTrigger
                                     aria-invalid={Boolean(errors.status)}
-                                    className={cn(
-                                        errors.status && 'border-red-500 focus:ring-red-500',
-                                    )}
+                                    className={cn(errors.status && 'border-red-500 focus:ring-red-500')}
                                 >
                                     <SelectValue placeholder="Выберите статус" />
                                 </SelectTrigger>
@@ -920,7 +1072,7 @@ export default function FlatFormDialog({
                         <button
                             type="button"
                             onClick={() => handleClose(false)}
-                            className="inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors hover:bg-muted"
+                            className="hover:bg-muted inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors"
                         >
                             {mode === 'create' && createdFlat ? 'Закрыть' : 'Отмена'}
                         </button>
@@ -930,7 +1082,7 @@ export default function FlatFormDialog({
                                 href={route('apartments.show', createdFlat.slug)}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex h-10 items-center justify-center rounded-lg bg-foreground px-4 text-sm font-medium text-background transition-opacity hover:opacity-90"
+                                className="bg-foreground text-background inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-medium transition-opacity hover:opacity-90"
                             >
                                 Открыть карточку
                             </a>
@@ -938,15 +1090,9 @@ export default function FlatFormDialog({
                             <button
                                 type="submit"
                                 disabled={processing}
-                                className="inline-flex h-10 items-center justify-center rounded-lg bg-foreground px-4 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                                className="bg-foreground text-background inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                {processing
-                                    ? mode === 'create'
-                                        ? 'Добавление...'
-                                        : 'Сохранение...'
-                                    : mode === 'create'
-                                      ? 'Добавить'
-                                      : 'Сохранить'}
+                                {processing ? (mode === 'create' ? 'Добавление...' : 'Сохранение...') : mode === 'create' ? 'Добавить' : 'Сохранить'}
                             </button>
                         )}
                     </DialogFooter>

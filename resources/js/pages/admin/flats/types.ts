@@ -8,25 +8,21 @@ export type Flat = {
     rooms: number;
     square: number;
     price: number;
+    price_m2: number | null;
+    action: 0 | 1;
+    action_price_m2: number | null;
+    display_price: number;
+    display_price_m2: number | null;
     sold: 0 | 1 | 2;
     plan: string | null;
     floor_plan: string | null;
     finishing: string | null;
     living_square: number | null;
     ceiling_height: number | null;
-    price_m2: number | null;
     finish_date: string | null;
 };
 
-export type SortableColumn =
-    | 'id'
-    | 'building'
-    | 'floor'
-    | 'number'
-    | 'rooms_number'
-    | 'square'
-    | 'price'
-    | 'sold';
+export type SortableColumn = 'id' | 'building' | 'floor' | 'number' | 'rooms_number' | 'square' | 'price' | 'sold';
 
 export type ViewMode = 'table' | 'list';
 
