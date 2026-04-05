@@ -23,7 +23,10 @@ Route::prefix('3dpanorama')->name('panorama.')->group(function () {
 
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+
     Route::get('/flats', [FlatController::class, 'index'])->name('flats.index');
+    Route::get('/flats/export', [FlatController::class, 'export'])->name('flats.export');
+
     Route::post('/flats', [FlatController::class, 'store'])->name('flats.store');
     Route::patch('/flats/{flat}', [FlatController::class, 'update'])->name('flats.update');
 

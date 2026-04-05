@@ -1,16 +1,5 @@
 import { router } from '@inertiajs/react';
-import {
-    Download,
-    Filter,
-    List,
-    MoreVertical,
-    Plus,
-    Search,
-    Settings2,
-    Table2,
-    Trash2,
-    Upload,
-} from 'lucide-react';
+import { Download, Filter, List, MoreVertical, Plus, Search, Settings2, Table2, Trash2, Upload } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 
 import {
@@ -26,12 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import CreateFlatDialog from '@/pages/Admin/Flats/components/create-flat-dialog';
 import DeleteAllFlatsDialog from '@/pages/Admin/Flats/components/delete-all-flats-dialog';
-import type {
-    DraftFilters,
-    FilterOptions,
-    Filters,
-    ViewMode,
-} from '@/pages/Admin/Flats/types';
+import type { DraftFilters, FilterOptions, Filters, ViewMode } from '@/pages/Admin/Flats/types';
 import { getRoomLabel, perPageOptions } from '@/pages/Admin/Flats/utils';
 
 type Props = {
@@ -44,10 +28,7 @@ type Props = {
     filtersOpen: boolean;
     onFiltersOpenChange: (open: boolean) => void;
     draftFilters: DraftFilters;
-    onToggleDraftFilterValue: (
-        group: keyof DraftFilters,
-        value: number,
-    ) => void;
+    onToggleDraftFilterValue: (group: keyof DraftFilters, value: number) => void;
     onApplyDraftFilters: () => void;
     onResetDraftFilters: () => void;
     onPerPageChange: (value: number) => void;
@@ -74,12 +55,7 @@ export default function FlatsToolbar({
     const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
     const [deleteAllProcessing, setDeleteAllProcessing] = useState(false);
 
-    const currentViewIcon =
-        filters.view === 'list' ? (
-            <List className="h-4 w-4" />
-        ) : (
-            <Table2 className="h-4 w-4" />
-        );
+    const currentViewIcon = filters.view === 'list' ? <List className="h-4 w-4" /> : <Table2 className="h-4 w-4" />;
 
     const handleDeleteAllConfirm = () => {
         router.delete(route('admin.flats.destroyAll'), {
@@ -92,6 +68,10 @@ export default function FlatsToolbar({
         });
     };
 
+    const handleExport = () => {
+        window.location.assign(route('admin.flats.export'));
+    };
+
     return (
         <>
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -101,12 +81,12 @@ export default function FlatsToolbar({
                         value={searchValue}
                         onChange={(event) => onSearchValueChange(event.target.value)}
                         placeholder="Поиск, например 1886"
-                        className="h-10 w-full max-w-md rounded-lg border bg-background px-3 text-sm outline-none transition focus:border-primary"
+                        className="bg-background focus:border-primary h-10 w-full max-w-md rounded-lg border px-3 text-sm transition outline-none"
                     />
 
                     <button
                         type="submit"
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors"
                         aria-label="Найти"
                         title="Найти"
                     >
@@ -117,7 +97,7 @@ export default function FlatsToolbar({
                         <DropdownMenuTrigger asChild>
                             <button
                                 type="button"
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors"
                                 aria-label="Количество строк"
                                 title="Количество строк"
                             >
@@ -128,15 +108,9 @@ export default function FlatsToolbar({
                         <DropdownMenuContent align="start" className="w-44">
                             <DropdownMenuLabel>Строк на странице</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuRadioGroup
-                                value={String(filters.perPage)}
-                                onValueChange={(value) => onPerPageChange(Number(value))}
-                            >
+                            <DropdownMenuRadioGroup value={String(filters.perPage)} onValueChange={(value) => onPerPageChange(Number(value))}>
                                 {perPageOptions.map((option) => (
-                                    <DropdownMenuRadioItem
-                                        key={option}
-                                        value={String(option)}
-                                    >
+                                    <DropdownMenuRadioItem key={option} value={String(option)}>
                                         {option} / стр.
                                     </DropdownMenuRadioItem>
                                 ))}
@@ -148,31 +122,25 @@ export default function FlatsToolbar({
                         <DropdownMenuTrigger asChild>
                             <button
                                 type="button"
-                                className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                className="text-muted-foreground hover:bg-muted hover:text-foreground relative inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors"
                                 aria-label="Фильтры"
                                 title="Фильтры"
                             >
                                 <Filter className="h-4 w-4" />
-                                {activeFiltersCount > 0 ? (
-                                    <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-foreground" />
-                                ) : null}
+                                {activeFiltersCount > 0 ? <span className="bg-foreground absolute top-1.5 right-1.5 h-2 w-2 rounded-full" /> : null}
                             </button>
                         </DropdownMenuTrigger>
 
                         <DropdownMenuContent align="start" className="w-72">
                             <div className="space-y-4 p-1">
                                 <div>
-                                    <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                        Корпус
-                                    </div>
+                                    <div className="text-muted-foreground px-2 py-1 text-xs font-semibold tracking-wide uppercase">Корпус</div>
                                     <div className="max-h-36 overflow-y-auto">
                                         {filterOptions.building.map((value) => (
                                             <DropdownMenuCheckboxItem
                                                 key={`building-${value}`}
                                                 checked={draftFilters.building.includes(value)}
-                                                onCheckedChange={() =>
-                                                    onToggleDraftFilterValue('building', value)
-                                                }
+                                                onCheckedChange={() => onToggleDraftFilterValue('building', value)}
                                                 onSelect={(event) => event.preventDefault()}
                                             >
                                                 Корпус {value}
@@ -182,17 +150,13 @@ export default function FlatsToolbar({
                                 </div>
 
                                 <div>
-                                    <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                        Этаж
-                                    </div>
+                                    <div className="text-muted-foreground px-2 py-1 text-xs font-semibold tracking-wide uppercase">Этаж</div>
                                     <div className="max-h-36 overflow-y-auto">
                                         {filterOptions.floor.map((value) => (
                                             <DropdownMenuCheckboxItem
                                                 key={`floor-${value}`}
                                                 checked={draftFilters.floor.includes(value)}
-                                                onCheckedChange={() =>
-                                                    onToggleDraftFilterValue('floor', value)
-                                                }
+                                                onCheckedChange={() => onToggleDraftFilterValue('floor', value)}
                                                 onSelect={(event) => event.preventDefault()}
                                             >
                                                 Этаж {value}
@@ -202,17 +166,13 @@ export default function FlatsToolbar({
                                 </div>
 
                                 <div>
-                                    <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                        Комнаты
-                                    </div>
+                                    <div className="text-muted-foreground px-2 py-1 text-xs font-semibold tracking-wide uppercase">Комнаты</div>
                                     <div className="max-h-36 overflow-y-auto">
                                         {filterOptions.rooms.map((value) => (
                                             <DropdownMenuCheckboxItem
                                                 key={`rooms-${value}`}
                                                 checked={draftFilters.rooms.includes(value)}
-                                                onCheckedChange={() =>
-                                                    onToggleDraftFilterValue('rooms', value)
-                                                }
+                                                onCheckedChange={() => onToggleDraftFilterValue('rooms', value)}
                                                 onSelect={(event) => event.preventDefault()}
                                             >
                                                 {getRoomLabel(value)}
@@ -227,7 +187,7 @@ export default function FlatsToolbar({
                                     <button
                                         type="button"
                                         onClick={onResetDraftFilters}
-                                        className="inline-flex h-9 items-center rounded-lg px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                        className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-9 items-center rounded-lg px-3 text-sm transition-colors"
                                     >
                                         Сбросить
                                     </button>
@@ -235,7 +195,7 @@ export default function FlatsToolbar({
                                     <button
                                         type="button"
                                         onClick={onApplyDraftFilters}
-                                        className="inline-flex h-9 items-center rounded-lg bg-foreground px-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
+                                        className="bg-foreground text-background inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium transition-opacity hover:opacity-90"
                                     >
                                         Применить
                                     </button>
@@ -248,7 +208,7 @@ export default function FlatsToolbar({
                         <DropdownMenuTrigger asChild>
                             <button
                                 type="button"
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors"
                                 aria-label="Режим отображения"
                                 title="Режим отображения"
                             >
@@ -259,10 +219,7 @@ export default function FlatsToolbar({
                         <DropdownMenuContent align="start" className="w-48">
                             <DropdownMenuLabel>Режим просмотра</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuRadioGroup
-                                value={filters.view}
-                                onValueChange={(value) => onViewChange(value as ViewMode)}
-                            >
+                            <DropdownMenuRadioGroup value={filters.view} onValueChange={(value) => onViewChange(value as ViewMode)}>
                                 <DropdownMenuRadioItem value="table">
                                     <div className="flex items-center gap-2">
                                         <Table2 className="h-4 w-4" />
@@ -286,7 +243,7 @@ export default function FlatsToolbar({
                         <DropdownMenuTrigger asChild>
                             <button
                                 type="button"
-                                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors hover:bg-muted"
+                                className="hover:bg-muted inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors"
                             >
                                 <span>Действия</span>
                                 <MoreVertical className="h-4 w-4" />
@@ -294,15 +251,12 @@ export default function FlatsToolbar({
                         </DropdownMenuTrigger>
 
                         <DropdownMenuContent align="end" className="w-52">
-                            <DropdownMenuItem
-                                className="gap-2"
-                                onClick={() => setCreateDialogOpen(true)}
-                            >
+                            <DropdownMenuItem className="gap-2" onClick={() => setCreateDialogOpen(true)}>
                                 <Plus className="h-4 w-4" />
                                 Добавить квартиру
                             </DropdownMenuItem>
 
-                            <DropdownMenuItem className="gap-2">
+                            <DropdownMenuItem className="gap-2" onClick={handleExport}>
                                 <Download className="h-4 w-4" />
                                 Экспорт квартир
                             </DropdownMenuItem>
@@ -326,10 +280,7 @@ export default function FlatsToolbar({
                 </div>
             </div>
 
-            <CreateFlatDialog
-                open={createDialogOpen}
-                onOpenChange={setCreateDialogOpen}
-            />
+            <CreateFlatDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
 
             <DeleteAllFlatsDialog
                 open={deleteAllDialogOpen}

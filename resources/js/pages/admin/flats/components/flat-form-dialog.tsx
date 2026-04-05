@@ -182,7 +182,7 @@ const textFieldSchema = (label: string, max = 255) =>
         }
     });
 
-const dateFieldSchema = (label: string) =>
+const finishDateFieldSchema = (label: string, max = 255) =>
     z.string().superRefine((value, ctx) => {
         const trimmed = value.trim();
 
@@ -194,7 +194,15 @@ const dateFieldSchema = (label: string) =>
             return;
         }
 
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed) || Number.isNaN(Date.parse(trimmed))) {
+        if (trimmed.length > max) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: `Поле «${label}» не должно быть длиннее ${max} символов.`,
+            });
+            return;
+        }
+
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed) && Number.isNaN(Date.parse(trimmed))) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: `Укажите корректную дату в поле «${label}».`,
@@ -261,7 +269,7 @@ const fieldSchemas = {
     action: enumFieldSchema(AUCTION_VALUES, 'Аукцион'),
     action_price_m2: optionalIntegerFieldSchema('Аукционная цена за кв.м.', 0),
     finishing: textFieldSchema('Отделка', 255),
-    finish_date: dateFieldSchema('Дата окончания строительства'),
+    finish_date: finishDateFieldSchema('Дата окончания строительства'),
     status: enumFieldSchema(STATUS_VALUES, 'Статус'),
     apartment_plan: fileFieldSchema('План квартиры'),
     floor_plan: fileFieldSchema('План этажа'),
@@ -386,6 +394,14 @@ function toPublicUrl(path: string | null | undefined): string | null {
     return `/${path.replace(/^\/+/, '')}`;
 }
 
+function isIsoDateValue(value: string): boolean {
+    return /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
+}
+
+function detectFinishDateMode(value: string): 'date' | 'text' {
+    return isIsoDateValue(value) ? 'date' : 'text';
+}
+
 function buildInitialData(mode: 'create' | 'edit', flat?: Flat | null): FlatFormData {
     return {
         building: toStringValue(flat?.building),
@@ -401,7 +417,7 @@ function buildInitialData(mode: 'create' | 'edit', flat?: Flat | null): FlatForm
         action: flat?.action === 1 ? '1' : '0',
         action_price_m2: toStringValue(flat?.action_price_m2),
         finishing: flat?.finishing ?? '',
-        finish_date: flat?.finish_date ? flat.finish_date.slice(0, 10) : '',
+        finish_date: flat?.finish_date ? String(flat.finish_date).slice(0, 255) : '',
         status: soldToStatus(flat?.sold),
         apartment_plan: null,
         floor_plan: null,
@@ -459,6 +475,9 @@ export default function FlatFormDialog({ mode, open, onOpenChange, flat = null }
 
     const [createdFlat, setCreatedFlat] = useState<CreatedFlat>(null);
     const [priceTouched, setPriceTouched] = useState(false);
+    const [finishDateMode, setFinishDateMode] = useState<'date' | 'text'>(
+        detectFinishDateMode(buildInitialData(mode, mode === 'edit' ? flat : null).finish_date),
+    );
 
     const apartmentPlanInputRef = useRef<HTMLInputElement | null>(null);
     const floorPlanInputRef = useRef<HTMLInputElement | null>(null);
@@ -486,6 +505,7 @@ export default function FlatFormDialog({ mode, open, onOpenChange, flat = null }
     const syncFormWithData = (nextData: FlatFormData) => {
         replaceFormData(nextData);
         setPriceTouched(isPriceManuallyOverridden(nextData));
+        setFinishDateMode(detectFinishDateMode(nextData.finish_date));
     };
 
     useEffect(() => {
@@ -498,6 +518,7 @@ export default function FlatFormDialog({ mode, open, onOpenChange, flat = null }
     useEffect(() => {
         if (mode === 'edit' && open) {
             const nextData = buildInitialData('edit', flat);
+
             clearErrors();
             setCreatedFlat(null);
             syncFormWithData(nextData);
@@ -623,6 +644,15 @@ export default function FlatFormDialog({ mode, open, onOpenChange, flat = null }
 
         if (errors.action || errors.action_price_m2) {
             syncFieldError('action', nextData);
+        }
+    };
+
+    const handleFinishDateModeChange = (nextMode: 'date' | 'text') => {
+        setFinishDateMode(nextMode);
+
+        if (nextMode === 'date' && !isIsoDateValue(data.finish_date)) {
+            setData('finish_date', '');
+            clearErrors('finish_date');
         }
     };
 
@@ -1009,16 +1039,57 @@ export default function FlatFormDialog({ mode, open, onOpenChange, flat = null }
                         </div>
 
                         <div>
-                            <Label htmlFor={`${mode}-finish_date`}>Дата окончания строительства</Label>
-                            <Input
-                                id={`${mode}-finish_date`}
-                                type="date"
-                                value={data.finish_date}
-                                onChange={(event) => updateField('finish_date', event.target.value)}
-                                aria-invalid={Boolean(errors.finish_date)}
-                                className={cn(errors.finish_date && 'border-red-500 focus-visible:ring-red-500')}
-                            />
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                                <Label htmlFor={`${mode}-finish_date`}>Дата окончания строительства</Label>
+
+                                <div className="inline-flex rounded-lg border p-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleFinishDateModeChange('date')}
+                                        className={cn(
+                                            'rounded-md px-2 py-1 text-xs transition-colors',
+                                            finishDateMode === 'date' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted',
+                                        )}
+                                    >
+                                        Дата
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => handleFinishDateModeChange('text')}
+                                        className={cn(
+                                            'rounded-md px-2 py-1 text-xs transition-colors',
+                                            finishDateMode === 'text' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted',
+                                        )}
+                                    >
+                                        Текст
+                                    </button>
+                                </div>
+                            </div>
+
+                            {finishDateMode === 'date' ? (
+                                <Input
+                                    id={`${mode}-finish_date`}
+                                    type="date"
+                                    value={isIsoDateValue(data.finish_date) ? data.finish_date : ''}
+                                    onChange={(event) => updateField('finish_date', event.target.value)}
+                                    aria-invalid={Boolean(errors.finish_date)}
+                                    className={cn(errors.finish_date && 'border-red-500 focus-visible:ring-red-500')}
+                                />
+                            ) : (
+                                <Input
+                                    id={`${mode}-finish_date`}
+                                    type="text"
+                                    value={data.finish_date}
+                                    placeholder="Например: СДАН или 2 квартал"
+                                    onChange={(event) => updateField('finish_date', event.target.value)}
+                                    aria-invalid={Boolean(errors.finish_date)}
+                                    className={cn(errors.finish_date && 'border-red-500 focus-visible:ring-red-500')}
+                                />
+                            )}
+
                             <FieldError message={errors.finish_date} />
+                            <p className="text-muted-foreground mt-1 text-xs">Можно указать точную дату или произвольный текст.</p>
                         </div>
 
                         <div>

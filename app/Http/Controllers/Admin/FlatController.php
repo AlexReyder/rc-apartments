@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\FlatsExport;
 use App\Http\Controllers\Controller;
 use App\Models\Flat;
 use Illuminate\Http\RedirectResponse;
@@ -11,6 +12,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
 
 class FlatController extends Controller
@@ -70,6 +73,13 @@ class FlatController extends Controller
             ],
             'flats' => $flats,
         ]);
+    }
+
+    public function export(): BinaryFileResponse
+    {
+        $fileName = 'Квартиры-'.now()->format('Y-m-d_H-i').'.xlsx';
+
+        return Excel::download(new FlatsExport(), $fileName);
     }
 
     public function store(Request $request): RedirectResponse
@@ -377,7 +387,7 @@ class FlatController extends Controller
                 Rule::requiredIf(request()->boolean('action')),
             ],
             'finishing' => ['required', 'string', 'max:255'],
-            'finish_date' => ['required', 'date'],
+            'finish_date' => ['required', 'string', 'max:255'],
             'status' => ['required', Rule::in(['available', 'sold', 'hidden'])],
             'apartment_plan' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
             'floor_plan' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
@@ -438,7 +448,6 @@ class FlatController extends Controller
             'floor_position' => $floorPlanPath,
             'finish_date' => $finishDate,
             'finishing' => $finishing,
-            'action_price_m2' => $actionPriceM2,
             'title' => $this->makeTitle($building, $number),
             'description' => $this->makeDescription(
                 $building,
