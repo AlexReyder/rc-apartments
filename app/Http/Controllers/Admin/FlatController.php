@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Flat;
 use App\Services\Admin\Flats\FlatPayloadBuilder;
 use App\Services\Admin\Flats\Imports\UpdateFlatsFromExcelService;
+use App\Services\Admin\Flats\Imports\ReplaceFlatsFromArchiveService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -84,22 +85,37 @@ class FlatController extends Controller
         return Excel::download(new FlatsExport(), $fileName);
     }
 
- public function import(Request $request, UpdateFlatsFromExcelService $service): RedirectResponse|\Illuminate\Http\JsonResponse
-{
+    public function import(
+    Request $request,
+    UpdateFlatsFromExcelService $excelImportService,
+    ReplaceFlatsFromArchiveService $archiveImportService,
+): RedirectResponse|\Illuminate\Http\JsonResponse {
     $validated = $request->validate([
-        'file' => ['required', 'file', 'mimes:xlsx,xls', 'max:20480'],
+        'mode' => ['nullable', 'string', Rule::in(['update_existing', 'replace_all_archive'])],
+        'file' => ['required', 'file', 'max:102400'],
         'dry_run' => ['nullable', 'boolean'],
     ]);
 
-    try {
-        $result = $service->handle(
-            file: $validated['file'],
-            dryRun: $request->boolean('dry_run'),
-        );
+    $mode = (string) ($validated['mode'] ?? 'update_existing');
 
-        $message = $result['isDryRun']
-            ? "Проверка завершена: будет обновлено {$result['updatedRows']}, без изменений {$result['skippedRows']}, ошибок {$result['errorRows']}."
-            : "Импорт завершён: обновлено {$result['updatedRows']}, без изменений {$result['skippedRows']}, ошибок {$result['errorRows']}.";
+    $request->validate([
+        'file' => $mode === 'replace_all_archive'
+            ? ['required', 'file', 'mimes:zip', 'max:102400']
+            : ['required', 'file', 'mimes:xlsx,xls', 'max:20480'],
+    ]);
+
+    try {
+        $result = $mode === 'replace_all_archive'
+            ? $archiveImportService->handle(
+                file: $validated['file'],
+                dryRun: $request->boolean('dry_run'),
+            )
+            : $excelImportService->handle(
+                file: $validated['file'],
+                dryRun: $request->boolean('dry_run'),
+            );
+
+        $message = $this->buildImportMessage($result);
 
         if ($request->expectsJson()) {
             if ($result['fatalError']) {
@@ -125,13 +141,17 @@ class FlatController extends Controller
     } catch (Throwable $e) {
         report($e);
 
+        $message = $mode === 'replace_all_archive'
+            ? 'Не удалось выполнить полный импорт архива. Попробуйте снова.'
+            : 'Не удалось выполнить импорт квартир. Попробуйте снова.';
+
         if ($request->expectsJson()) {
             return response()->json([
-                'message' => 'Не удалось выполнить импорт квартир. Попробуйте снова.',
+                'message' => $message,
             ], 500);
         }
 
-        return back()->with('error', 'Не удалось выполнить импорт квартир. Попуйте снова.');
+        return back()->with('error', $message);
     }
 }
 
@@ -591,4 +611,19 @@ class FlatController extends Controller
 
         return $normalized;
     }
+
+    private function buildImportMessage(array $result): string
+        {
+            if (($result['mode'] ?? null) === 'replace_all_archive') {
+                if (($result['isDryRun'] ?? false) === true) {
+                    return "Проверка завершена: будет создано {$result['updatedRows']}, без plan {$result['missingPlanFiles']}, без floor_position {$result['missingFloorPositionFiles']}, ошибок {$result['errorRows']}.";
+                }
+
+                return "Полный импорт завершён: создано {$result['updatedRows']}, без plan {$result['missingPlanFiles']}, без floor_position {$result['missingFloorPositionFiles']}, ошибок {$result['errorRows']}.";
+            }
+
+            return ($result['isDryRun'] ?? false) === true
+                ? "Проверка завершена: будет обновлено {$result['updatedRows']}, без изменений {$result['skippedRows']}, ошибок {$result['errorRows']}."
+                : "Импорт завершён: обновлено {$result['updatedRows']}, без изменений {$result['skippedRows']}, ошибок {$result['errorRows']}.";
+        }
 }
