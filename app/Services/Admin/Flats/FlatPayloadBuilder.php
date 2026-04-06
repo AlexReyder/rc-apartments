@@ -9,12 +9,22 @@ class FlatPayloadBuilder
         ?string $apartmentPlanPath,
         ?string $floorPlanPath,
         bool $isUpdate = false,
+        ?int $currentRoomsNumberTrue = null,
     ): array {
         $building = (int) $validated['building'];
         $floor = (int) $validated['floor'];
         $entrance = (int) $validated['entrance_number'];
         $number = (int) $validated['number'];
         $rooms = (int) $validated['rooms_number'];
+
+        $hasRoomsNumberTrue = array_key_exists('rooms_number_true', $validated)
+            && $validated['rooms_number_true'] !== null
+            && $validated['rooms_number_true'] !== '';
+
+        $roomsNumberTrue = $hasRoomsNumberTrue
+            ? (int) $validated['rooms_number_true']
+            : ($isUpdate ? ($currentRoomsNumberTrue ?? $rooms) : $rooms);
+
         $square = round((float) $validated['square'], 2);
         $livingSquare = round((float) $validated['living_square'], 2);
         $ceilingHeight = round((float) $validated['ceiling_height'], 2);
@@ -34,7 +44,7 @@ class FlatPayloadBuilder
 
         $payload = [
             'rooms_number' => $rooms,
-            'rooms_number_true' => $rooms,
+            'rooms_number_true' => $roomsNumberTrue,
             'floor' => $floor,
             'square' => $square,
             'updated_at' => now(),
@@ -58,7 +68,7 @@ class FlatPayloadBuilder
                 $number,
                 $entrance,
                 $floor,
-                $rooms,
+                $roomsNumberTrue,
                 $square,
             ),
         ];

@@ -1,5 +1,5 @@
-import { useForm, usePage } from '@inertiajs/react';
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
+import { toast } from 'sonner';
 
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -10,14 +10,13 @@ type Props = {
     onOpenChange: (open: boolean) => void;
 };
 
-type ImportFormData = {
-    file: File | null;
-    dry_run: '0' | '1';
-};
+type SubmitMode = 'preview' | 'import';
 
-type FlashProps = {
-    flash?: {
-        importResult?: FlatsImportResult | null;
+type ImportResponse = {
+    message?: string;
+    result?: FlatsImportResult;
+    errors?: {
+        file?: string[];
     };
 };
 
@@ -31,31 +30,22 @@ function SummaryCard({ label, value }: { label: string; value: number | string }
 }
 
 export default function ImportFlatsDialog({ open, onOpenChange }: Props) {
-    const page = usePage<FlashProps>();
-    const flashImportResult = page.props.flash?.importResult ?? null;
-
+    const [file, setFile] = useState<File | null>(null);
+    const [fileError, setFileError] = useState<string | null>(null);
     const [result, setResult] = useState<FlatsImportResult | null>(null);
-    const [submitMode, setSubmitMode] = useState<'preview' | 'import' | null>(null);
+    const [processingMode, setProcessingMode] = useState<SubmitMode | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    const { data, setData, post, transform, processing, errors, reset, clearErrors } = useForm<ImportFormData>({
-        file: null,
-        dry_run: '1',
-    });
+    const isProcessing = processingMode !== null;
 
-    useEffect(() => {
-        if (flashImportResult) {
-            setResult(flashImportResult);
-            onOpenChange(true);
-        }
-    }, [flashImportResult, onOpenChange]);
+    const canImport = !!file && !isProcessing && !!result && result.isDryRun && !result.fatalError && result.errorRows === 0;
 
     const resetFormState = () => {
-        reset();
+        setFile(null);
+        setFileError(null);
         setResult(null);
-        setSubmitMode(null);
-        clearErrors();
+        setProcessingMode(null);
 
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
@@ -73,26 +63,67 @@ export default function ImportFlatsDialog({ open, onOpenChange }: Props) {
     const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
         const nextFile = event.target.files?.[0] ?? null;
 
-        setData('file', nextFile);
-        clearErrors('file');
+        setFile(nextFile);
+        setFileError(null);
+        setResult(null);
     };
 
-    const submit = (mode: 'preview' | 'import') => {
-        setSubmitMode(mode);
+    const getCsrfToken = (): string => {
+        const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-        transform((currentData) => ({
-            ...currentData,
-            dry_run: mode === 'preview' ? '1' : '0',
-        }));
+        return token ?? '';
+    };
 
-        post(route('admin.flats.import'), {
-            forceFormData: true,
-            preserveScroll: true,
-            preserveState: true,
-            onError: () => {
-                onOpenChange(true);
-            },
-        });
+    const submit = async (mode: SubmitMode) => {
+        if (!file) {
+            setFileError('Выберите Excel-файл для импорта.');
+            return;
+        }
+
+        setProcessingMode(mode);
+        setFileError(null);
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('dry_run', mode === 'preview' ? '1' : '0');
+
+        try {
+            const response = await fetch(route('admin.flats.import'), {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                },
+            });
+
+            const payload = (await response.json()) as ImportResponse;
+
+            if (!response.ok) {
+                if (payload.errors?.file?.[0]) {
+                    setFileError(payload.errors.file[0]);
+                }
+
+                if (payload.result) {
+                    setResult(payload.result);
+                }
+
+                toast.error(payload.message ?? 'Не удалось выполнить импорт квартир.');
+                return;
+            }
+
+            if (payload.result) {
+                setResult(payload.result);
+            }
+
+            toast.success(payload.message ?? (mode === 'preview' ? 'Проверка завершена.' : 'Импорт завершён.'));
+        } catch {
+            toast.error('Не удалось выполнить импорт квартир. Попробуйте снова.');
+        } finally {
+            setProcessingMode(null);
+        }
     };
 
     const actionLabel = result?.isDryRun ? 'Будет обновлено' : 'Обновлено';
@@ -118,7 +149,7 @@ export default function ImportFlatsDialog({ open, onOpenChange }: Props) {
                             onChange={handleFileChange}
                             className="file:text-foreground text-muted-foreground block w-full rounded-lg border px-3 py-2 text-sm file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium"
                         />
-                        {errors.file ? <p className="text-xs text-red-600">{errors.file}</p> : null}
+                        {fileError ? <p className="text-xs text-red-600">{fileError}</p> : null}
                         <p className="text-muted-foreground text-xs">Поддерживаются только XLSX/XLS в точном формате текущего экспорта.</p>
                     </div>
 
@@ -193,7 +224,7 @@ export default function ImportFlatsDialog({ open, onOpenChange }: Props) {
                 <DialogFooter className="gap-2">
                     <button
                         type="button"
-                        disabled={processing}
+                        disabled={isProcessing}
                         onClick={() => handleClose(false)}
                         className="hover:bg-muted inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -202,20 +233,20 @@ export default function ImportFlatsDialog({ open, onOpenChange }: Props) {
 
                     <button
                         type="button"
-                        disabled={!data.file || processing}
+                        disabled={!file || isProcessing}
                         onClick={() => submit('preview')}
                         className="hover:bg-muted inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                        {processing && submitMode === 'preview' ? 'Проверка...' : 'Проверить'}
+                        {processingMode === 'preview' ? 'Проверка...' : 'Проверить'}
                     </button>
 
                     <button
                         type="button"
-                        disabled={!data.file || processing}
+                        disabled={!canImport}
                         onClick={() => submit('import')}
                         className="bg-foreground text-background inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                        {processing && submitMode === 'import' ? 'Импорт...' : 'Импортировать'}
+                        {processingMode === 'import' ? 'Импорт...' : 'Импортировать'}
                     </button>
                 </DialogFooter>
             </DialogContent>

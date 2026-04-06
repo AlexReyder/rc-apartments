@@ -84,36 +84,56 @@ class FlatController extends Controller
         return Excel::download(new FlatsExport(), $fileName);
     }
 
-    public function import(Request $request, UpdateFlatsFromExcelService $service): RedirectResponse
-    {
-        $validated = $request->validate([
-            'file' => ['required', 'file', 'mimes:xlsx,xls', 'max:20480'],
-            'dry_run' => ['nullable', 'boolean'],
-        ]);
+ public function import(Request $request, UpdateFlatsFromExcelService $service): RedirectResponse|\Illuminate\Http\JsonResponse
+{
+    $validated = $request->validate([
+        'file' => ['required', 'file', 'mimes:xlsx,xls', 'max:20480'],
+        'dry_run' => ['nullable', 'boolean'],
+    ]);
 
-        try {
-            $result = $service->handle(
-                file: $validated['file'],
-                dryRun: $request->boolean('dry_run'),
-            );
+    try {
+        $result = $service->handle(
+            file: $validated['file'],
+            dryRun: $request->boolean('dry_run'),
+        );
 
-            $redirect = back()->with('importResult', $result);
+        $message = $result['isDryRun']
+            ? "Проверка завершена: будет обновлено {$result['updatedRows']}, без изменений {$result['skippedRows']}, ошибок {$result['errorRows']}."
+            : "Импорт завершён: обновлено {$result['updatedRows']}, без изменений {$result['skippedRows']}, ошибок {$result['errorRows']}.";
 
+        if ($request->expectsJson()) {
             if ($result['fatalError']) {
-                return $redirect->with('error', $result['fatalError']);
+                return response()->json([
+                    'message' => $result['fatalError'],
+                    'result' => $result,
+                ], 422);
             }
 
-            $message = $result['isDryRun']
-                ? "Проверка завершена: будет обновлено {$result['updatedRows']}, без изменений {$result['skippedRows']}, ошибок {$result['errorRows']}."
-                : "Импорт завершён: обновлено {$result['updatedRows']}, без изменений {$result['skippedRows']}, ошибок {$result['errorRows']}.";
-
-            return $redirect->with('success', $message);
-        } catch (Throwable $e) {
-            report($e);
-
-            return back()->with('error', 'Не удалось выполнить импорт квартир. Попробуйте снова.');
+            return response()->json([
+                'message' => $message,
+                'result' => $result,
+            ]);
         }
+
+        $redirect = back()->with('importResult', $result);
+
+        if ($result['fatalError']) {
+            return $redirect->with('error', $result['fatalError']);
+        }
+
+        return $redirect->with('success', $message);
+    } catch (Throwable $e) {
+        report($e);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Не удалось выполнить импорт квартир. Попробуйте снова.',
+            ], 500);
+        }
+
+        return back()->with('error', 'Не удалось выполнить импорт квартир. Попуйте снова.');
     }
+}
 
     public function store(Request $request, FlatPayloadBuilder $payloadBuilder): RedirectResponse
     {
@@ -123,10 +143,11 @@ class FlatController extends Controller
             $apartmentPlanPath = $request->file('apartment_plan')?->store('apartments/plans', 'public');
             $floorPlanPath = $request->file('floor_plan')?->store('apartments/floors', 'public');
 
-            $flat = Flat::query()->create($payloadBuilder->build(
+           $flat = Flat::query()->create($payloadBuilder->build(
                 validated: $validated,
                 apartmentPlanPath: $apartmentPlanPath ? 'storage/'.$apartmentPlanPath : null,
                 floorPlanPath: $floorPlanPath ? 'storage/'.$floorPlanPath : null,
+                currentRoomsNumberTrue: null,
             ));
 
             return back()
@@ -175,11 +196,12 @@ class FlatController extends Controller
                 $nextFloorPlanPath = null;
             }
 
-            $flat->forceFill($payloadBuilder->build(
+          $flat->forceFill($payloadBuilder->build(
                 validated: $validated,
                 apartmentPlanPath: $nextApartmentPlanPath,
                 floorPlanPath: $nextFloorPlanPath,
                 isUpdate: true,
+                currentRoomsNumberTrue: $flat->rooms_number_true,
             ))->save();
 
             $this->deletePublicFiles($filesToDelete);
@@ -407,6 +429,7 @@ class FlatController extends Controller
             'entrance_number' => ['required', 'integer', 'min:1'],
             'number' => ['required', 'integer', 'min:1'],
             'rooms_number' => ['required', 'integer', Rule::in([0, 1, 2, 3, 4])],
+            'rooms_number_true' => ['nullable', 'integer', Rule::in([0, 1, 2, 3, 4])],
             'square' => ['required', 'numeric', 'min:0'],
             'living_square' => ['required', 'numeric', 'min:0'],
             'ceiling_height' => ['required', 'numeric', 'min:0'],

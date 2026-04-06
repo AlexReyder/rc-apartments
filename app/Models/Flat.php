@@ -21,6 +21,7 @@ class Flat extends Model
         'floor' => 'integer',
         'number' => 'integer',
         'rooms_number' => 'integer',
+        'rooms_number_true' => 'integer',
         'square' => 'float',
         'living_square' => 'float',
         'ceiling_height' => 'float',
@@ -37,6 +38,15 @@ class Flat extends Model
             (int) $this->floor,
             (int) $this->number,
         );
+    }
+
+    public function getPublicRoomsAttribute(): int
+    {
+        if ($this->rooms_number_true !== null) {
+            return (int) $this->rooms_number_true;
+        }
+
+        return (int) $this->rooms_number;
     }
 
     public static function makeSlug(int $building, int $floor, int $number): string
@@ -93,6 +103,7 @@ class Flat extends Model
                     ->orWhere('number', $numericSearch)
                     ->orWhere('floor', $numericSearch)
                     ->orWhere('rooms_number', $numericSearch)
+                    ->orWhere('rooms_number_true', $numericSearch)
                     ->orWhere('price', $numericSearch);
             }
         });
@@ -113,7 +124,15 @@ class Flat extends Model
         }
 
         if ($rooms !== []) {
-            $query->whereIn('rooms_number', $rooms);
+            $query->where(function (Builder $roomsQuery) use ($rooms) {
+                $roomsQuery
+                    ->whereIn('rooms_number_true', $rooms)
+                    ->orWhere(function (Builder $fallbackQuery) use ($rooms) {
+                        $fallbackQuery
+                            ->whereNull('rooms_number_true')
+                            ->whereIn('rooms_number', $rooms);
+                    });
+            });
         }
 
         return $query;

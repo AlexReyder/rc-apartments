@@ -36,6 +36,7 @@ type FlatFormData = {
     entrance_number: string;
     number: string;
     rooms_number: string;
+    rooms_number_true: string;
     square: string;
     living_square: string;
     ceiling_height: string;
@@ -59,6 +60,7 @@ type FormField =
     | 'entrance_number'
     | 'number'
     | 'rooms_number'
+    | 'rooms_number_true'
     | 'square'
     | 'living_square'
     | 'ceiling_height'
@@ -261,6 +263,7 @@ const fieldSchemas = {
     entrance_number: integerFieldSchema('Подъезд', 1),
     number: integerFieldSchema('Номер квартиры', 1),
     rooms_number: enumFieldSchema(ROOM_VALUES, 'Количество комнат'),
+    rooms_number_true: enumFieldSchema(ROOM_VALUES, 'Фактическая комнатность'),
     square: numericFieldSchema('Общая площадь', 0),
     living_square: numericFieldSchema('Жилая площадь', 0),
     ceiling_height: numericFieldSchema('Высота потолков', 0),
@@ -402,13 +405,21 @@ function detectFinishDateMode(value: string): 'date' | 'text' {
     return isIsoDateValue(value) ? 'date' : 'text';
 }
 
+function hasRoomsTrueOverride(data: Pick<FlatFormData, 'rooms_number' | 'rooms_number_true'>): boolean {
+    return data.rooms_number_true.trim() !== '' && data.rooms_number_true !== data.rooms_number;
+}
+
 function buildInitialData(mode: 'create' | 'edit', flat?: Flat | null): FlatFormData {
+    const baseRooms = flat ? toStringValue(flat.rooms) : '1';
+    const trueRooms = flat?.rooms_true !== null && flat?.rooms_true !== undefined ? toStringValue(flat.rooms_true) : baseRooms;
+
     return {
         building: toStringValue(flat?.building),
         floor: toStringValue(flat?.floor),
         entrance_number: toStringValue(flat?.entrance),
         number: toStringValue(flat?.number),
-        rooms_number: flat ? toStringValue(flat.rooms) : '1',
+        rooms_number: baseRooms,
+        rooms_number_true: trueRooms,
         square: toStringValue(flat?.square),
         living_square: toStringValue(flat?.living_square),
         ceiling_height: toStringValue(flat?.ceiling_height),
@@ -473,18 +484,17 @@ export default function FlatFormDialog({ mode, open, onOpenChange, flat = null }
     const page = usePage<FlashProps>();
     const flashCreatedFlat = page.props.flash?.createdFlat ?? null;
 
+    const initialData = buildInitialData(mode, mode === 'edit' ? flat : null);
+
     const [createdFlat, setCreatedFlat] = useState<CreatedFlat>(null);
     const [priceTouched, setPriceTouched] = useState(false);
-    const [finishDateMode, setFinishDateMode] = useState<'date' | 'text'>(
-        detectFinishDateMode(buildInitialData(mode, mode === 'edit' ? flat : null).finish_date),
-    );
+    const [roomsTrueOverrideEnabled, setRoomsTrueOverrideEnabled] = useState(hasRoomsTrueOverride(initialData));
+    const [finishDateMode, setFinishDateMode] = useState<'date' | 'text'>(detectFinishDateMode(initialData.finish_date));
 
     const apartmentPlanInputRef = useRef<HTMLInputElement | null>(null);
     const floorPlanInputRef = useRef<HTMLInputElement | null>(null);
 
-    const { data, setData, post, processing, errors, reset, clearErrors, setError } = useForm<FlatFormData>(
-        buildInitialData(mode, mode === 'edit' ? flat : null),
-    );
+    const { data, setData, post, processing, errors, reset, clearErrors, setError } = useForm<FlatFormData>(initialData);
 
     const resetFileInputs = () => {
         if (apartmentPlanInputRef.current) {
@@ -505,6 +515,7 @@ export default function FlatFormDialog({ mode, open, onOpenChange, flat = null }
     const syncFormWithData = (nextData: FlatFormData) => {
         replaceFormData(nextData);
         setPriceTouched(isPriceManuallyOverridden(nextData));
+        setRoomsTrueOverrideEnabled(hasRoomsTrueOverride(nextData));
         setFinishDateMode(detectFinishDateMode(nextData.finish_date));
     };
 
@@ -614,6 +625,53 @@ export default function FlatFormDialog({ mode, open, onOpenChange, flat = null }
 
         if (!priceTouched && errors.price) {
             syncFieldError('price', nextData);
+        }
+    };
+
+    const handleRoomsNumberChange = (value: string) => {
+        const nextRoomsTrue = roomsTrueOverrideEnabled ? data.rooms_number_true || value : value;
+
+        const nextData = {
+            ...data,
+            rooms_number: value,
+            rooms_number_true: nextRoomsTrue,
+        } as FlatFormData;
+
+        setData('rooms_number', value);
+        setData('rooms_number_true', nextRoomsTrue);
+
+        if (errors.rooms_number) {
+            syncFieldError('rooms_number', nextData);
+        } else {
+            clearErrors('rooms_number');
+        }
+
+        if (errors.rooms_number_true) {
+            syncFieldError('rooms_number_true', nextData);
+        } else if (!roomsTrueOverrideEnabled) {
+            clearErrors('rooms_number_true');
+        }
+    };
+
+    const handleRoomsTrueOverrideChange = (checked: boolean | 'indeterminate') => {
+        const enabled = checked === true;
+        const nextRoomsTrue = enabled ? data.rooms_number_true || data.rooms_number : data.rooms_number;
+
+        const nextData = {
+            ...data,
+            rooms_number_true: nextRoomsTrue,
+        } as FlatFormData;
+
+        setRoomsTrueOverrideEnabled(enabled);
+        setData('rooms_number_true', nextRoomsTrue);
+
+        if (!enabled) {
+            clearErrors('rooms_number_true');
+            return;
+        }
+
+        if (errors.rooms_number_true) {
+            syncFieldError('rooms_number_true', nextData);
         }
     };
 
@@ -869,24 +927,76 @@ export default function FlatFormDialog({ mode, open, onOpenChange, flat = null }
                             <FieldError message={errors.number} />
                         </div>
 
-                        <div>
-                            <Label>Количество комнат</Label>
-                            <Select value={data.rooms_number} onValueChange={(value) => updateField('rooms_number', value, true)}>
-                                <SelectTrigger
-                                    aria-invalid={Boolean(errors.rooms_number)}
-                                    className={cn(errors.rooms_number && 'border-red-500 focus:ring-red-500')}
-                                >
-                                    <SelectValue placeholder="Выберите количество комнат" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="0">Студия</SelectItem>
-                                    <SelectItem value="1">1-комнатная</SelectItem>
-                                    <SelectItem value="2">2-комнатная</SelectItem>
-                                    <SelectItem value="3">3-комнатная</SelectItem>
-                                    <SelectItem value="4">4-комнатная</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <FieldError message={errors.rooms_number} />
+                        <div className="space-y-3 rounded-xl border p-4 md:col-span-2 xl:col-span-3">
+                            <div>
+                                <Label>Количество комнат</Label>
+                                <Select value={data.rooms_number} onValueChange={handleRoomsNumberChange}>
+                                    <SelectTrigger
+                                        aria-invalid={Boolean(errors.rooms_number)}
+                                        className={cn(errors.rooms_number && 'border-red-500 focus:ring-red-500')}
+                                    >
+                                        <SelectValue placeholder="Выберите количество комнат" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="0">Студия</SelectItem>
+                                        <SelectItem value="1">1-комнатная</SelectItem>
+                                        <SelectItem value="2">2-комнатная</SelectItem>
+                                        <SelectItem value="3">3-комнатная</SelectItem>
+                                        <SelectItem value="4">4-комнатная</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FieldError message={errors.rooms_number} />
+                            </div>
+
+                            <div className="border-t pt-3">
+                                <div className="flex items-start gap-3">
+                                    <Checkbox
+                                        id={`${mode}-rooms_number_true_override`}
+                                        checked={roomsTrueOverrideEnabled}
+                                        onCheckedChange={handleRoomsTrueOverrideChange}
+                                    />
+
+                                    <div className="space-y-1">
+                                        <Label htmlFor={`${mode}-rooms_number_true_override`} className="cursor-pointer text-sm font-medium">
+                                            Особый случай для интеграций / публичного отображения
+                                        </Label>
+                                        <p className="text-muted-foreground text-xs">
+                                            По умолчанию фактическая комнатность совпадает с обычной. Включите этот режим, если для сайта и интеграций
+                                            нужно использовать другое значение.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {roomsTrueOverrideEnabled ? (
+                                    <div className="mt-4">
+                                        <Label>Фактическая комнатность</Label>
+                                        <Select
+                                            value={data.rooms_number_true}
+                                            onValueChange={(value) => updateField('rooms_number_true', value, true)}
+                                        >
+                                            <SelectTrigger
+                                                aria-invalid={Boolean(errors.rooms_number_true)}
+                                                className={cn(errors.rooms_number_true && 'border-red-500 focus:ring-red-500')}
+                                            >
+                                                <SelectValue placeholder="Выберите фактическую комнатность" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="0">Студия</SelectItem>
+                                                <SelectItem value="1">1-комнатная</SelectItem>
+                                                <SelectItem value="2">2-комнатная</SelectItem>
+                                                <SelectItem value="3">3-комнатная</SelectItem>
+                                                <SelectItem value="4">4-комнатная</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FieldError message={errors.rooms_number_true} />
+                                    </div>
+                                ) : (
+                                    <p className="text-muted-foreground mt-3 text-xs">
+                                        Сейчас фактическая комнатность будет сохранена как:{' '}
+                                        {data.rooms_number === '0' ? 'Студия' : `${data.rooms_number}-комнатная`}
+                                    </p>
+                                )}
+                            </div>
                         </div>
 
                         <div>
