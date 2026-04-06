@@ -93,7 +93,7 @@ class FlatsExport implements
             $flat->entrance_number !== null ? (int) $flat->entrance_number : null,
             (int) $flat->floor,
             (int) $flat->number,
-            (int) $flat->rooms_number,
+            (string) ((int) $flat->rooms_number),
             round((float) $flat->square, 2),
             $flat->living_square !== null ? round((float) $flat->living_square, 2) : null,
             $flat->ceiling_height !== null ? round((float) $flat->ceiling_height, 2) : null,
