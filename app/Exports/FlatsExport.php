@@ -41,6 +41,11 @@ class FlatsExport implements
 
     public function headings(): array
     {
+        return self::exportHeadings();
+    }
+
+    public static function exportHeadings(): array
+    {
         return [
             'ID',
             'Статус',

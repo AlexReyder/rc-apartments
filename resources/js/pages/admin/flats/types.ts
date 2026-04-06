@@ -60,6 +60,27 @@ export type FilterOptions = {
     rooms: number[];
 };
 
+export type FlatImportRowError = {
+    rowNumber: number;
+    flatId: number | null;
+    field: string;
+    message: string;
+};
+
+export type FlatsImportResult = {
+    mode: 'update_existing';
+    isDryRun: boolean;
+    fileName: string;
+    fatalError: string | null;
+    processedRows: number;
+    emptyRows: number;
+    validRows: number;
+    updatedRows: number;
+    skippedRows: number;
+    errorRows: number;
+    errors: FlatImportRowError[];
+};
+
 export type FlatsPageProps = {
     filters: Filters;
     filterOptions: FilterOptions;

@@ -26,6 +26,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
     Route::get('/flats', [FlatController::class, 'index'])->name('flats.index');
     Route::get('/flats/export', [FlatController::class, 'export'])->name('flats.export');
+    Route::post('/flats/import', [FlatController::class, 'import'])->name('flats.import');
 
     Route::post('/flats', [FlatController::class, 'store'])->name('flats.store');
     Route::patch('/flats/{flat}', [FlatController::class, 'update'])->name('flats.update');

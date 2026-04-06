@@ -13,10 +13,11 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import CreateFlatDialog from '@/pages/Admin/Flats/components/create-flat-dialog';
-import DeleteAllFlatsDialog from '@/pages/Admin/Flats/components/delete-all-flats-dialog';
-import type { DraftFilters, FilterOptions, Filters, ViewMode } from '@/pages/Admin/Flats/types';
-import { getRoomLabel, perPageOptions } from '@/pages/Admin/Flats/utils';
+import type { DraftFilters, FilterOptions, Filters, ViewMode } from '../types';
+import { getRoomLabel, perPageOptions } from '../utils';
+import CreateFlatDialog from './create-flat-dialog';
+import DeleteAllFlatsDialog from './delete-all-flats-dialog';
+import ImportFlatsDialog from './import-flats-dialog';
 
 type Props = {
     searchValue: string;
@@ -52,6 +53,7 @@ export default function FlatsToolbar({
     onViewChange,
 }: Props) {
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
+    const [importDialogOpen, setImportDialogOpen] = useState(false);
     const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
     const [deleteAllProcessing, setDeleteAllProcessing] = useState(false);
 
@@ -261,7 +263,7 @@ export default function FlatsToolbar({
                                 Экспорт квартир
                             </DropdownMenuItem>
 
-                            <DropdownMenuItem className="gap-2">
+                            <DropdownMenuItem className="gap-2" onClick={() => setImportDialogOpen(true)}>
                                 <Upload className="h-4 w-4" />
                                 Импорт квартир
                             </DropdownMenuItem>
@@ -281,6 +283,8 @@ export default function FlatsToolbar({
             </div>
 
             <CreateFlatDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
+
+            <ImportFlatsDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} />
 
             <DeleteAllFlatsDialog
                 open={deleteAllDialogOpen}

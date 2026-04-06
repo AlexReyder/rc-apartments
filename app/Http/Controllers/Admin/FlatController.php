@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Exports\FlatsExport;
 use App\Http\Controllers\Controller;
 use App\Models\Flat;
+use App\Services\Admin\Flats\FlatPayloadBuilder;
+use App\Services\Admin\Flats\Imports\UpdateFlatsFromExcelService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -82,7 +84,38 @@ class FlatController extends Controller
         return Excel::download(new FlatsExport(), $fileName);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function import(Request $request, UpdateFlatsFromExcelService $service): RedirectResponse
+    {
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls', 'max:20480'],
+            'dry_run' => ['nullable', 'boolean'],
+        ]);
+
+        try {
+            $result = $service->handle(
+                file: $validated['file'],
+                dryRun: $request->boolean('dry_run'),
+            );
+
+            $redirect = back()->with('importResult', $result);
+
+            if ($result['fatalError']) {
+                return $redirect->with('error', $result['fatalError']);
+            }
+
+            $message = $result['isDryRun']
+                ? "Проверка завершена: будет обновлено {$result['updatedRows']}, без изменений {$result['skippedRows']}, ошибок {$result['errorRows']}."
+                : "Импорт завершён: обновлено {$result['updatedRows']}, без изменений {$result['skippedRows']}, ошибок {$result['errorRows']}.";
+
+            return $redirect->with('success', $message);
+        } catch (Throwable $e) {
+            report($e);
+
+            return back()->with('error', 'Не удалось выполнить импорт квартир. Попробуйте снова.');
+        }
+    }
+
+    public function store(Request $request, FlatPayloadBuilder $payloadBuilder): RedirectResponse
     {
         $validated = $request->validate($this->flatValidationRules());
 
@@ -90,7 +123,7 @@ class FlatController extends Controller
             $apartmentPlanPath = $request->file('apartment_plan')?->store('apartments/plans', 'public');
             $floorPlanPath = $request->file('floor_plan')?->store('apartments/floors', 'public');
 
-            $flat = Flat::query()->create($this->makeFlatPayload(
+            $flat = Flat::query()->create($payloadBuilder->build(
                 validated: $validated,
                 apartmentPlanPath: $apartmentPlanPath ? 'storage/'.$apartmentPlanPath : null,
                 floorPlanPath: $floorPlanPath ? 'storage/'.$floorPlanPath : null,
@@ -109,7 +142,7 @@ class FlatController extends Controller
         }
     }
 
-    public function update(Request $request, Flat $flat): RedirectResponse
+    public function update(Request $request, Flat $flat, FlatPayloadBuilder $payloadBuilder): RedirectResponse
     {
         $validated = $request->validate($this->flatValidationRules(true));
 
@@ -142,7 +175,7 @@ class FlatController extends Controller
                 $nextFloorPlanPath = null;
             }
 
-            $flat->forceFill($this->makeFlatPayload(
+            $flat->forceFill($payloadBuilder->build(
                 validated: $validated,
                 apartmentPlanPath: $nextApartmentPlanPath,
                 floorPlanPath: $nextFloorPlanPath,
@@ -401,71 +434,6 @@ class FlatController extends Controller
         return $rules;
     }
 
-    private function makeFlatPayload(
-        array $validated,
-        ?string $apartmentPlanPath,
-        ?string $floorPlanPath,
-        bool $isUpdate = false,
-    ): array {
-        $building = (int) $validated['building'];
-        $floor = (int) $validated['floor'];
-        $entrance = (int) $validated['entrance_number'];
-        $number = (int) $validated['number'];
-        $rooms = (int) $validated['rooms_number'];
-        $square = round((float) $validated['square'], 2);
-        $livingSquare = round((float) $validated['living_square'], 2);
-        $ceilingHeight = round((float) $validated['ceiling_height'], 2);
-        $priceM2 = (int) $validated['price_m2'];
-        $price = (int) $validated['price'];
-        $actionEnabled = filter_var($validated['action'], FILTER_VALIDATE_BOOLEAN) === true;
-        $actionPriceM2 = $actionEnabled ? (int) $validated['action_price_m2'] : 0;
-        $finishDate = $validated['finish_date'];
-        $finishing = trim((string) $validated['finishing']);
-
-        $soldStatus = match ($validated['status']) {
-            'available' => 0,
-            'sold' => 1,
-            'hidden' => 2,
-        };
-
-        $payload = [
-            'rooms_number' => $rooms,
-            'rooms_number_true' => $rooms,
-            'floor' => $floor,
-            'square' => $square,
-            'updated_at' => now(),
-            'entrance_number' => $entrance,
-            'living_square' => $livingSquare,
-            'ceiling_height' => $ceilingHeight,
-            'plan' => $apartmentPlanPath,
-            'sold' => $soldStatus,
-            'building' => $building,
-            'number' => $number,
-            'price' => $price,
-            'price_m2' => $priceM2,
-            'action' => $actionEnabled ? 1 : 0,
-            'action_price_m2' => $actionPriceM2,
-            'floor_position' => $floorPlanPath,
-            'finish_date' => $finishDate,
-            'finishing' => $finishing,
-            'title' => $this->makeTitle($building, $number),
-            'description' => $this->makeDescription(
-                $building,
-                $number,
-                $entrance,
-                $floor,
-                $rooms,
-                $square,
-            ),
-        ];
-
-        if (! $isUpdate) {
-            $payload['created_at'] = now();
-        }
-
-        return $payload;
-    }
-
     private function transformFlatForAdmin(Flat $flat): array
     {
         return [
@@ -544,34 +512,6 @@ class FlatController extends Controller
         if ($paths !== []) {
             Storage::disk('public')->delete($paths);
         }
-    }
-
-    private function makeTitle(int $building, int $number): string
-    {
-        return sprintf(
-            'Квартира в ЖК «Орловский Бульвар», Гатчина. Корпус: %d. Номер: %d',
-            $building,
-            $number,
-        );
-    }
-
-    private function makeDescription(
-        int $building,
-        int $number,
-        int $entrance,
-        int $floor,
-        int $rooms,
-        float $square,
-    ): string {
-        return sprintf(
-            'Квартира в ЖК «Орловский Бульвар», Гатчина. Корпус: %d. Номер: %d. Подъезд: %d. Этаж: %d. Количество комнат: %d. Площадь: %.2f. Подробности на сайте',
-            $building,
-            $number,
-            $entrance,
-            $floor,
-            $rooms,
-            $square,
-        );
     }
 
     private function distinctIntegerValues(string $column): array
