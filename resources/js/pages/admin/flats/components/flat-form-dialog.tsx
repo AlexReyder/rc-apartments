@@ -520,7 +520,6 @@ export default function FlatFormDialog({ mode, open, onOpenChange, flat = null }
         setRoomsTrueOverrideEnabled(hasRoomsTrueOverride(nextData));
         setFinishDateMode(detectFinishDateMode(nextData.finish_date));
     };
-    console.log(initialData);
 
     useEffect(() => {
         if (mode === 'create' && flashCreatedFlat) {

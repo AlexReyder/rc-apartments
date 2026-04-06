@@ -150,6 +150,15 @@ class FlatController extends Controller
                 currentRoomsNumberTrue: null,
             ));
 
+
+            // $flat = Flat::query()->create($payloadBuilder->build(
+            //     $validated,
+            //     $apartmentPlanPath ? 'storage/'.$apartmentPlanPath : null,
+            //     $floorPlanPath ? 'storage/'.$floorPlanPath : null,
+            //     false,
+            //     null,
+            // ));
+
             return back()
                 ->with('success', 'Квартира успешно добавлена.')
                 ->with('createdFlat', [
@@ -196,21 +205,22 @@ class FlatController extends Controller
                 $nextFloorPlanPath = null;
             }
 
-          $flat->forceFill($payloadBuilder->build(
-                validated: $validated,
-                apartmentPlanPath: $nextApartmentPlanPath,
-                floorPlanPath: $nextFloorPlanPath,
-                isUpdate: true,
-                currentRoomsNumberTrue: $flat->rooms_number_true,
-            ))->save();
+         $flat->forceFill($payloadBuilder->build(
+    $validated,
+    $nextApartmentPlanPath,
+    $nextFloorPlanPath,
+    true,
+    $flat->rooms_number_true,
+))->save();
 
             $this->deletePublicFiles($filesToDelete);
 
             return back()->with('success', 'Квартира успешно обновлена.');
         } catch (Throwable $e) {
             report($e);
-
-            return back()->with('error', 'Не удалось обновить квартиру. Попробуйте снова.');
+            var_dump($flat);
+                 return back()->with('error', $e->getMessage());
+            // return back()->with('error', 'Не удалось обновить квартиру. Попробуйте снова.');
         }
     }
 
