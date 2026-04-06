@@ -16,13 +16,13 @@ class FlatPayloadBuilder
         $number = (int) $validated['number'];
         $rooms = (int) $validated['rooms_number'];
 
-        $hasRoomsNumberTrue = array_key_exists('rooms_number_true', $validated)
-            && $validated['rooms_number_true'] !== null
-            && $validated['rooms_number_true'] !== '';
+        $rooms = (int) $validated['rooms_number'];
 
-        $roomsNumberTrue = $hasRoomsNumberTrue
-            ? (int) $validated['rooms_number_true']
-            : $rooms;
+        $roomsNumberTrue = array_key_exists('rooms_number_true', $validated)
+            && $validated['rooms_number_true'] !== null
+            && $validated['rooms_number_true'] !== ''
+                ? (int) $validated['rooms_number_true']
+                : ($isUpdate ? ($currentRoomsNumberTrue ?? $rooms) : $rooms);
 
         $square = round((float) $validated['square'], 2);
         $livingSquare = round((float) $validated['living_square'], 2);

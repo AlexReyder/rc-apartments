@@ -429,7 +429,7 @@ class FlatController extends Controller
             'entrance_number' => ['required', 'integer', 'min:1'],
             'number' => ['required', 'integer', 'min:1'],
             'rooms_number' => ['required', 'integer', Rule::in([0, 1, 2, 3, 4])],
-            'rooms_number_true' => ['nullable', 'integer', Rule::in([0, 1, 2, 3, 4])],
+            'rooms_number_true' => ['required', 'integer', Rule::in([0, 1, 2, 3, 4])],
             'square' => ['required', 'numeric', 'min:0'],
             'living_square' => ['required', 'numeric', 'min:0'],
             'ceiling_height' => ['required', 'numeric', 'min:0'],
@@ -467,7 +467,10 @@ class FlatController extends Controller
         'floor' => (int) $flat->floor,
         'number' => (int) $flat->number,
         'rooms' => (int) $flat->rooms_number,
-        'rooms_true' => $flat->rooms_number_true !== null ? (int) $flat->rooms_number_true : null,
+        'rooms_true' => $flat->rooms_number_true !== null
+            ? (int) $flat->rooms_number_true
+            : (int) $flat->rooms_number,
+        // 'rooms_true' => $flat->rooms_number_true ===  $flat->rooms_number ? $flat->rooms_number : $flat->rooms_number_true,
         'square' => (float) $flat->square,
         'price' => (int) $flat->price,
         'price_m2' => $flat->price_m2 !== null ? (int) $flat->price_m2 : null,

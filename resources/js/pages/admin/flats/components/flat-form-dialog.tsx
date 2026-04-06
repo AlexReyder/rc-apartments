@@ -497,8 +497,7 @@ export default function FlatFormDialog({ mode, open, onOpenChange, flat = null }
     const apartmentPlanInputRef = useRef<HTMLInputElement | null>(null);
     const floorPlanInputRef = useRef<HTMLInputElement | null>(null);
 
-    const { data, setData, post, processing, errors, reset, clearErrors, setError } = useForm<FlatFormData>(initialData);
-
+    const { data, setData, post, transform, processing, errors, reset, clearErrors, setError } = useForm<FlatFormData>(initialData);
     const resetFileInputs = () => {
         if (apartmentPlanInputRef.current) {
             apartmentPlanInputRef.current.value = '';
@@ -811,6 +810,15 @@ export default function FlatFormDialog({ mode, open, onOpenChange, flat = null }
             onOpenChange(true);
             return;
         }
+
+        transform((currentData) => ({
+            ...currentData,
+            rooms_number_true: roomsTrueOverrideEnabled
+                ? currentData.rooms_number_true.trim() !== ''
+                    ? currentData.rooms_number_true
+                    : currentData.rooms_number
+                : currentData.rooms_number,
+        }));
 
         if (mode === 'create') {
             post(route('admin.flats.store'), {
