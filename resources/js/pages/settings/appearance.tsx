@@ -1,30 +1,32 @@
+import AppearanceTabs from '@/components/appearance-tabs';
+import AdminLayout from '@/layouts/admin-layout';
+import SettingsLayout from '@/layouts/settings/layout';
+import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 
-import AppearanceTabs from '@/components/appearance-tabs';
-import HeadingSmall from '@/components/heading-small';
-import { type BreadcrumbItem } from '@/types';
-
-import AppLayout from '@/layouts/app-layout';
-import SettingsLayout from '@/layouts/settings/layout';
-
 const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Appearance settings',
-        href: '/settings/appearance',
-    },
+    { title: 'Админ-панель', href: '/admin' },
+    { title: 'Настройки', href: '/admin/settings/profile' },
+    { title: 'Оформление', href: '/admin/settings/appearance' },
 ];
 
 export default function Appearance() {
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Appearance settings" />
+        <>
+            <Head title="Оформление" />
 
-            <SettingsLayout>
-                <div className="space-y-6">
-                    <HeadingSmall title="Appearance settings" description="Update your account's appearance settings" />
-                    <AppearanceTabs />
-                </div>
-            </SettingsLayout>
-        </AppLayout>
+            <AdminLayout title="Настройки оформления" description="Выберите режим отображения интерфейса." breadcrumbs={breadcrumbs}>
+                <SettingsLayout>
+                    <section className="bg-background rounded-xl border p-6">
+                        <div className="mb-6">
+                            <h2 className="text-lg font-semibold">Оформление</h2>
+                            <p className="text-muted-foreground mt-1 text-sm">Выберите светлую, тёмную или системную тему.</p>
+                        </div>
+
+                        <AppearanceTabs />
+                    </section>
+                </SettingsLayout>
+            </AdminLayout>
+        </>
     );
 }

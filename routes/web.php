@@ -5,7 +5,10 @@ use App\Http\Controllers\Admin\FlatController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Apartments\ApartmentController;
 use App\Http\Controllers\Panorama\PanoramaController;
+use App\Http\Controllers\Settings\PasswordController;
+use App\Http\Controllers\Settings\ProfileController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::get('/', function () {
     abort(404);
@@ -24,6 +27,19 @@ Route::prefix('3dpanorama')->name('panorama.')->group(function () {
 
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    Route::redirect('/settings', '/admin/settings/profile')->name('settings');
+
+    Route::prefix('settings')->name('settings.')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+
+    Route::get('/appearance', function () {
+        return Inertia::render('settings/appearance');
+    })->name('appearance');
+
+    Route::get('/password', [PasswordController::class, 'edit'])->name('password.edit');
+    Route::put('/password', [PasswordController::class, 'update'])->name('password.update');
+});
 
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::post('/users', [UserController::class, 'store'])->name('users.store');
