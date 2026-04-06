@@ -55,6 +55,7 @@ class FlatsExport implements
             'Этаж',
             'Номер квартиры',
             'Комнат',
+            'Фактическая комнатность',
             'Общая площадь, м²',
             'Жилая площадь, м²',
             'Высота потолков, м',
@@ -94,6 +95,7 @@ class FlatsExport implements
             (int) $flat->floor,
             (int) $flat->number,
             (string) ((int) $flat->rooms_number),
+             (string) ((int)($flat->rooms_number_true ?? $flat->rooms_number)),
             round((float) $flat->square, 2),
             $flat->living_square !== null ? round((float) $flat->living_square, 2) : null,
             $flat->ceiling_height !== null ? round((float) $flat->ceiling_height, 2) : null,
@@ -132,25 +134,26 @@ class FlatsExport implements
         ];
     }
 
-    public function columnFormats(): array
-    {
-        return [
-            'A' => NumberFormat::FORMAT_NUMBER,
-            'D' => NumberFormat::FORMAT_NUMBER,
-            'E' => NumberFormat::FORMAT_NUMBER,
-            'F' => NumberFormat::FORMAT_NUMBER,
-            'G' => NumberFormat::FORMAT_NUMBER,
-            'H' => NumberFormat::FORMAT_NUMBER,
-            'I' => NumberFormat::FORMAT_NUMBER_00,
-            'J' => NumberFormat::FORMAT_NUMBER_00,
-            'K' => NumberFormat::FORMAT_NUMBER_00,
-            'N' => '#,##0',
-            'O' => '#,##0',
-            'P' => '#,##0',
-            'Q' => '#,##0',
-            'R' => '#,##0',
-        ];
-    }
+  public function columnFormats(): array
+{
+    return [
+        'A' => NumberFormat::FORMAT_NUMBER,
+        'D' => NumberFormat::FORMAT_NUMBER,
+        'E' => NumberFormat::FORMAT_NUMBER,
+        'F' => NumberFormat::FORMAT_NUMBER,
+        'G' => NumberFormat::FORMAT_NUMBER,
+        'H' => NumberFormat::FORMAT_NUMBER,
+        'I' => NumberFormat::FORMAT_NUMBER,      // фактическая комнатность
+        'J' => NumberFormat::FORMAT_NUMBER_00,   // общая площадь
+        'K' => NumberFormat::FORMAT_NUMBER_00,   // жилая площадь
+        'L' => NumberFormat::FORMAT_NUMBER_00,   // высота потолков
+        'O' => '#,##0',                          // цена за кв.м.
+        'P' => '#,##0',                          // стоимость квартиры
+        'Q' => '#,##0',                          // аукционная цена за кв.м.
+        'R' => '#,##0',                          // отображаемая цена за кв.м.
+        'S' => '#,##0',                          // отображаемая стоимость квартиры
+    ];
+}
 
     public function columnWidths(): array
     {
