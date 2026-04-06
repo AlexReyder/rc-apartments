@@ -457,32 +457,33 @@ class FlatController extends Controller
         return $rules;
     }
 
-    private function transformFlatForAdmin(Flat $flat): array
-    {
-        return [
-            'id' => $flat->id,
-            'slug' => $flat->slug,
-            'building' => (int) $flat->building,
-            'entrance' => $flat->entrance_number !== null ? (int) $flat->entrance_number : null,
-            'floor' => (int) $flat->floor,
-            'number' => (int) $flat->number,
-            'rooms' => (int) $flat->rooms_number,
-            'square' => (float) $flat->square,
-            'price' => (int) $flat->price,
-            'price_m2' => $flat->price_m2 !== null ? (int) $flat->price_m2 : null,
-            'action' => isset($flat->action) ? (int) $flat->action : 0,
-            'action_price_m2' => $flat->action_price_m2 !== null ? (int) $flat->action_price_m2 : null,
-            'display_price' => $this->resolveDisplayPrice($flat),
-            'display_price_m2' => $this->resolveDisplayPricePerSquare($flat),
-            'sold' => (int) $flat->sold,
-            'plan' => $flat->plan,
-            'floor_plan' => $flat->floor_position,
-            'finishing' => $flat->finishing,
-            'living_square' => $flat->living_square !== null ? (float) $flat->living_square : null,
-            'ceiling_height' => $flat->ceiling_height !== null ? (float) $flat->ceiling_height : null,
-            'finish_date' => $flat->finish_date,
-        ];
-    }
+  private function transformFlatForAdmin(Flat $flat): array
+{
+    return [
+        'id' => $flat->id,
+        'slug' => $flat->slug,
+        'building' => (int) $flat->building,
+        'entrance' => $flat->entrance_number !== null ? (int) $flat->entrance_number : null,
+        'floor' => (int) $flat->floor,
+        'number' => (int) $flat->number,
+        'rooms' => (int) $flat->rooms_number,
+        'rooms_true' => $flat->rooms_number_true !== null ? (int) $flat->rooms_number_true : null,
+        'square' => (float) $flat->square,
+        'price' => (int) $flat->price,
+        'price_m2' => $flat->price_m2 !== null ? (int) $flat->price_m2 : null,
+        'action' => isset($flat->action) ? (int) $flat->action : 0,
+        'action_price_m2' => $flat->action_price_m2 !== null ? (int) $flat->action_price_m2 : null,
+        'display_price' => $this->resolveDisplayPrice($flat),
+        'display_price_m2' => $this->resolveDisplayPricePerSquare($flat),
+        'sold' => (int) $flat->sold,
+        'plan' => $flat->plan,
+        'floor_plan' => $flat->floor_position,
+        'finishing' => $flat->finishing,
+        'living_square' => $flat->living_square !== null ? (float) $flat->living_square : null,
+        'ceiling_height' => $flat->ceiling_height !== null ? (float) $flat->ceiling_height : null,
+        'finish_date' => $flat->finish_date,
+    ];
+}
 
     private function resolveDisplayPrice(Flat $flat): int
     {

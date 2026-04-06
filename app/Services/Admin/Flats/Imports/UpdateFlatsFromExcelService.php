@@ -118,12 +118,11 @@ class UpdateFlatsFromExcelService
                 continue;
             }
 
-           $payload = $this->payloadBuilder->build(
+            $payload = $this->payloadBuilder->build(
                 validated: $validated,
                 apartmentPlanPath: $flat->plan,
                 floorPlanPath: $flat->floor_position,
                 isUpdate: true,
-                currentRoomsNumberTrue: $flat->rooms_number_true,
             );
 
             $changes = $this->detectChanges($flat, $payload);

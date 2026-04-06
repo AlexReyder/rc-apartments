@@ -7,6 +7,7 @@ export type Flat = {
     number: number;
     rooms: number;
     rooms_true: number | null;
+    rooms_number_true?: number | null;
     square: number;
     price: number;
     price_m2: number | null;

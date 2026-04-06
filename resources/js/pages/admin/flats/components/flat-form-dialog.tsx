@@ -411,7 +411,10 @@ function hasRoomsTrueOverride(data: Pick<FlatFormData, 'rooms_number' | 'rooms_n
 
 function buildInitialData(mode: 'create' | 'edit', flat?: Flat | null): FlatFormData {
     const baseRooms = flat ? toStringValue(flat.rooms) : '1';
-    const trueRooms = flat?.rooms_true !== null && flat?.rooms_true !== undefined ? toStringValue(flat.rooms_true) : baseRooms;
+
+    const persistedTrueRooms = flat?.rooms_true ?? flat?.rooms_number_true ?? null;
+
+    const trueRooms = persistedTrueRooms !== null && persistedTrueRooms !== undefined ? toStringValue(persistedTrueRooms) : baseRooms;
 
     return {
         building: toStringValue(flat?.building),
@@ -518,6 +521,7 @@ export default function FlatFormDialog({ mode, open, onOpenChange, flat = null }
         setRoomsTrueOverrideEnabled(hasRoomsTrueOverride(nextData));
         setFinishDateMode(detectFinishDateMode(nextData.finish_date));
     };
+    console.log(initialData);
 
     useEffect(() => {
         if (mode === 'create' && flashCreatedFlat) {

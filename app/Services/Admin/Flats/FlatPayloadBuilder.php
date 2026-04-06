@@ -9,7 +9,6 @@ class FlatPayloadBuilder
         ?string $apartmentPlanPath,
         ?string $floorPlanPath,
         bool $isUpdate = false,
-        ?int $currentRoomsNumberTrue = null,
     ): array {
         $building = (int) $validated['building'];
         $floor = (int) $validated['floor'];
@@ -23,7 +22,7 @@ class FlatPayloadBuilder
 
         $roomsNumberTrue = $hasRoomsNumberTrue
             ? (int) $validated['rooms_number_true']
-            : ($isUpdate ? ($currentRoomsNumberTrue ?? $rooms) : $rooms);
+            : $rooms;
 
         $square = round((float) $validated['square'], 2);
         $livingSquare = round((float) $validated['living_square'], 2);
