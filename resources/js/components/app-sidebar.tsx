@@ -1,10 +1,8 @@
-import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
-import { NavUser } from '@/components/nav-user';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Building2, Folder, LayoutGrid } from 'lucide-react';
+import { Building2, LayoutGrid, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -14,22 +12,14 @@ const mainNavItems: NavItem[] = [
         icon: LayoutGrid,
     },
     {
+        title: 'Пользователи',
+        url: '/admin/users',
+        icon: Users,
+    },
+    {
         title: 'Квартиры',
         url: '/admin/flats',
         icon: Building2,
-    },
-];
-
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Публичный каталог',
-        url: '/apartments',
-        icon: BookOpen,
-    },
-    {
-        title: 'Репозиторий',
-        url: 'https://github.com/AlexReyder/rc-apartments',
-        icon: Folder,
     },
 ];
 
@@ -51,11 +41,6 @@ export function AppSidebar() {
             <SidebarContent>
                 <NavMain items={mainNavItems} />
             </SidebarContent>
-
-            <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
-                <NavUser />
-            </SidebarFooter>
         </Sidebar>
     );
 }
