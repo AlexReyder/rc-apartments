@@ -43,8 +43,7 @@ export default function CatalogGridCard({ flat }: CatalogGridCardProps) {
                 </div>
 
                 <div className="border-t border-[#eceef3] pt-4">
-                    <p className="text-[16px] text-[#b7bac4] line-through">{formatPrice(Math.round(flat.price * 1.18))}</p>
-                    <p className="mt-1 text-[24px] font-normal text-[#1A2431]">{formatPrice(flat.price)}</p>
+                    <p className="text-[24px] font-normal text-[#1A2431]">{formatPrice(flat.price)}</p>
                 </div>
             </div>
         </Link>

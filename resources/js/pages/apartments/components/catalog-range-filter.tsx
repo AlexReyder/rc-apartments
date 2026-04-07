@@ -18,12 +18,10 @@ export default function CatalogRangeFilter({ label, min, max, value, step, forma
             <div className="space-y-3">
                 <p className="text-[20px] font-normal text-[#8f909a]">{label}</p>
 
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-lg border border-[#eceef3] bg-[#eceef4] px-6 py-4 text-[18px] font-medium text-[#1A2431]">
-                        {formatValue(value[0])}
-                    </div>
-                    <div className="rounded-lg border border-[#eceef3] bg-[#eceef4] px-6 py-4 text-right text-[18px] font-medium text-[#1A2431]">
-                        {formatValue(value[1])}
+                <div className="rounded-lg border border-[#eceef3] bg-[#eceef4] px-6 py-4">
+                    <div className="flex items-center justify-between gap-4 text-[18px] font-medium text-[#1A2431]">
+                        <span>{formatValue(value[0])}</span>
+                        <span>{formatValue(value[1])}</span>
                     </div>
                 </div>
             </div>
