@@ -71,21 +71,23 @@ class ApartmentController extends Controller
                 ->all(),
         ];
 
-        $flats = Flat::query()
-            ->where('sold', 0)
-            ->select([
-                'id',
-                'building',
-                'entrance_number',
-                'floor',
-                'number',
-                'rooms_number',
-                'rooms_number_true',
-                'square',
-                'price',
-                'plan',
-            ])
-            ->applyAttributeFilters($buildings, [], $rooms);
+       $flats = Flat::query()
+    ->where('sold', 0)
+    ->select([
+        'id',
+        'building',
+        'entrance_number',
+        'floor',
+        'number',
+        'rooms_number',
+        'rooms_number_true',
+        'square',
+        'price',
+        'price_m2',
+        'finishing',
+        'plan',
+    ])
+    ->applyAttributeFilters($buildings, [], $rooms);
 
         $this->applyRangeFilter($flats, 'price', $priceFrom, $priceTo);
         $this->applyRangeFilter($flats, 'square', $areaFrom, $areaTo);
@@ -147,25 +149,27 @@ class ApartmentController extends Controller
         ]);
     }
 
-    private function transformFlatForCatalog(Flat $flat): array
-    {
-        $rooms = $flat->rooms_number_true !== null
-            ? (int) $flat->rooms_number_true
-            : (int) $flat->rooms_number;
+   private function transformFlatForCatalog(Flat $flat): array
+{
+    $rooms = $flat->rooms_number_true !== null
+        ? (int) $flat->rooms_number_true
+        : (int) $flat->rooms_number;
 
-        return [
-            'id' => (int) $flat->id,
-            'slug' => $flat->slug,
-            'number' => (int) $flat->number,
-            'building' => (int) $flat->building,
-            'entrance' => $flat->entrance_number !== null ? (int) $flat->entrance_number : null,
-            'floor' => (int) $flat->floor,
-            'rooms' => $rooms,
-            'square' => (float) $flat->square,
-            'price' => (int) $flat->price,
-            'plan' => $flat->plan ? asset(ltrim($flat->plan, '/')) : null,
-        ];
-    }
+    return [
+        'id' => (int) $flat->id,
+        'slug' => $flat->slug,
+        'number' => (int) $flat->number,
+        'building' => (int) $flat->building,
+        'entrance' => $flat->entrance_number !== null ? (int) $flat->entrance_number : null,
+        'floor' => (int) $flat->floor,
+        'rooms' => $rooms,
+        'square' => (float) $flat->square,
+        'price' => (int) $flat->price,
+        'pricePerMeter' => (int) $flat->price_m2,
+        'finishing' => $flat->finishing,
+        'plan' => $flat->plan ? asset(ltrim($flat->plan, '/')) : null,
+    ];
+}
 
     private function applyRangeFilter(Builder $query, string $column, int|float|null $from, int|float|null $to): void
     {

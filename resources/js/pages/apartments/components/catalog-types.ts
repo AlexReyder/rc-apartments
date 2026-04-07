@@ -12,6 +12,8 @@ export type CatalogFlat = {
     rooms: number;
     square: number;
     price: number;
+    pricePerMeter: number;
+    finishing: string | null;
     plan: string | null;
 };
 
