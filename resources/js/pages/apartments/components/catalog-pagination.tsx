@@ -14,7 +14,7 @@ export default function CatalogPagination({ links }: CatalogPaginationProps) {
     }
 
     return (
-        <nav className="flex flex-wrap items-center justify-center gap-2">
+        <nav className="flex flex-wrap items-center justify-center gap-2 pt-2">
             {links.map((link, index) => {
                 const isDisabled = link.url === null;
 
@@ -24,10 +24,10 @@ export default function CatalogPagination({ links }: CatalogPaginationProps) {
                         href={link.url ?? '#'}
                         preserveScroll
                         className={cn(
-                            'inline-flex min-w-11 items-center justify-center rounded-full border px-4 py-2 text-sm transition',
+                            'inline-flex min-w-11 items-center justify-center rounded-lg border px-4 py-2 text-sm transition',
                             link.active
-                                ? 'border-white bg-white text-[#1b3048]'
-                                : 'border-white/15 bg-[#1a2d44] text-white/80 hover:border-white/35 hover:text-white',
+                                ? 'border-[#456bf3] bg-[#456bf3] text-white'
+                                : 'border-[#d9dde6] bg-white text-[#5f6170] hover:border-[#456bf3] hover:text-[#1A2431]',
                             isDisabled && 'pointer-events-none opacity-40',
                         )}
                         dangerouslySetInnerHTML={{ __html: link.label }}

@@ -7,17 +7,13 @@ const Slider = React.forwardRef<
     React.ElementRef<typeof SliderPrimitive.Root>,
     React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>
 >(({ className, ...props }, ref) => (
-    <SliderPrimitive.Root
-        ref={ref}
-        className={cn('relative flex w-full touch-none select-none items-center', className)}
-        {...props}
-    >
-        <SliderPrimitive.Track className="relative h-2 w-full grow overflow-hidden rounded-full bg-white/10">
-            <SliderPrimitive.Range className="absolute h-full rounded-full bg-[#d6a07b]" />
+    <SliderPrimitive.Root ref={ref} className={cn('relative flex w-full touch-none select-none items-center', className)} {...props}>
+        <SliderPrimitive.Track className="relative h-[3px] w-full grow overflow-hidden rounded-full bg-[#d9dde4]">
+            <SliderPrimitive.Range className="absolute h-full rounded-full bg-[#3f67f4]" />
         </SliderPrimitive.Track>
 
-        <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border border-[#d6a07b] bg-[#d6a07b] shadow-[0_0_0_4px_rgba(214,160,123,0.18)] transition-colors focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50" />
-        <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border border-[#d6a07b] bg-[#d6a07b] shadow-[0_0_0_4px_rgba(214,160,123,0.18)] transition-colors focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50" />
+        <SliderPrimitive.Thumb className="block h-4 w-4 rounded-full border border-[#3f67f4] bg-[#3f67f4] shadow-[0_0_0_4px_rgba(63,103,244,0.14)] transition-colors focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50" />
+        <SliderPrimitive.Thumb className="block h-4 w-4 rounded-full border border-[#3f67f4] bg-[#3f67f4] shadow-[0_0_0_4px_rgba(63,103,244,0.14)] transition-colors focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50" />
     </SliderPrimitive.Root>
 ));
 Slider.displayName = SliderPrimitive.Root.displayName;

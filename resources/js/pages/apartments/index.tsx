@@ -76,7 +76,7 @@ function buildCatalogQuery(filters: CatalogFiltersType) {
 
 export default function ApartmentsIndex({ filters, filterMeta, flats }: Props) {
     const updateFilters = useCallback(
-        (updates: Partial<CatalogFiltersType>, options?: { resetPage?: boolean }) => {
+        (updates: Partial<CatalogFiltersType>) => {
             const nextFilters: CatalogFiltersType = {
                 ...filters,
                 ...updates,
@@ -128,13 +128,12 @@ export default function ApartmentsIndex({ filters, filterMeta, flats }: Props) {
 
     return (
         <PublicLayout>
-            <Head title="Выбрать квартиру" />
+            <Head title="Выбор квартир" />
 
-            <div className="space-y-8 lg:space-y-10">
-                <section className="space-y-6">
+            <div className="space-y-10 lg:space-y-12">
+                <section className="space-y-8">
                     <div className="space-y-3">
-                        <p className="text-sm font-medium tracking-[0.28em] text-[#d6a07b] uppercase">Каталог квартир</p>
-                        <h1 className="max-w-4xl text-4xl font-semibold tracking-tight text-white sm:text-5xl xl:text-6xl">Выбрать квартиру</h1>
+                        <h1 className="max-w-4xl text-4xl font-medium tracking-tight text-[#5e6070] sm:text-5xl xl:text-6xl">ВЫБОР КВАРТИР</h1>
                     </div>
 
                     <CatalogFilters filters={filters} filterMeta={filterMeta} onFiltersChange={updateFilters} onReset={handleReset} />
@@ -145,7 +144,7 @@ export default function ApartmentsIndex({ filters, filterMeta, flats }: Props) {
                         <CatalogSortLinks sortBy={filters.sortBy} sortDirection={filters.sortDirection} onChange={handleSortChange} />
 
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between lg:justify-end">
-                            <p className="text-sm text-white/65">
+                            <p className="text-sm text-[#8d8e98]">
                                 Показаны {flats.data.length} из {flats.total}
                             </p>
 
@@ -156,7 +155,7 @@ export default function ApartmentsIndex({ filters, filterMeta, flats }: Props) {
                     {flats.data.length > 0 ? (
                         <>
                             {filters.view === 'list' ? (
-                                <div className="space-y-4">
+                                <div className="space-y-5">
                                     {flats.data.map((flat) => (
                                         <CatalogListCard key={flat.id} flat={flat} />
                                     ))}
@@ -172,9 +171,9 @@ export default function ApartmentsIndex({ filters, filterMeta, flats }: Props) {
                             <CatalogPagination links={flats.links} />
                         </>
                     ) : (
-                        <div className="rounded-[28px] border border-dashed border-white/20 bg-[#20364f]/70 px-6 py-16 text-center">
-                            <h2 className="text-2xl font-semibold text-white">Подходящие квартиры не найдены</h2>
-                            <p className="mt-3 text-white/65">Измени параметры фильтрации или сбрось фильтры.</p>
+                        <div className="rounded-[28px] border border-[#dddfe6] bg-white px-6 py-16 text-center shadow-[0_18px_45px_rgba(26,36,49,0.05)]">
+                            <h2 className="text-2xl font-semibold text-[#1A2431]">Подходящие квартиры не найдены</h2>
+                            <p className="mt-3 text-[#7c7d86]">Измени параметры фильтрации или сбрось фильтры.</p>
                         </div>
                     )}
                 </section>

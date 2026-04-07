@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { RotateCcw } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import CatalogRangeFilter from './catalog-range-filter';
@@ -134,39 +134,37 @@ export default function CatalogFilters({ filters, filterMeta, onFiltersChange, o
     };
 
     return (
-        <section className="rounded-[32px] border border-white/10 bg-[#20364f]/85 p-5 shadow-[0_24px_80px_rgba(5,16,30,0.25)] backdrop-blur sm:p-6 lg:p-8">
-            <div className="grid gap-8 xl:grid-cols-[1.2fr_1fr_1fr]">
-                <div className="space-y-8">
-                    <div className="space-y-3">
-                        <p className="text-sm font-medium text-white/75">Кол-во комнат</p>
+        <section className="space-y-8">
+            <div className="grid gap-8 xl:grid-cols-4">
+                <div className="space-y-4">
+                    <p className="text-[20px] font-normal text-[#8f909a]">Комнатность</p>
 
-                        <div className="flex flex-wrap gap-3">
-                            {filterMeta.rooms.map((room) => {
-                                const isActive = filters.rooms.includes(room);
+                    <div className="flex flex-wrap gap-2">
+                        {filterMeta.rooms.map((room) => {
+                            const isActive = filters.rooms.includes(room);
 
-                                return (
-                                    <button
-                                        key={room}
-                                        type="button"
-                                        className={cn(
-                                            'min-w-14 rounded-2xl border px-5 py-3 text-sm font-medium transition',
-                                            isActive
-                                                ? 'border-[#d6a07b] bg-[#d6a07b] text-[#1b3048]'
-                                                : 'border-white/10 bg-[#16283d] text-white hover:border-white/25 hover:bg-[#1b3048]',
-                                        )}
-                                        onClick={() => toggleMultiFilter('rooms', room)}
-                                    >
-                                        {getRoomsChipLabel(room)}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                            return (
+                                <button
+                                    key={room}
+                                    type="button"
+                                    className={cn(
+                                        'min-w-16 rounded-lg border px-6 py-4 text-[18px] font-normal transition',
+                                        isActive
+                                            ? 'border-[#456bf3] bg-[#456bf3] text-white'
+                                            : 'border-[#eaebef] bg-[#eceef4] text-[#5f6170] hover:border-[#d6dae4] hover:bg-[#e7e9f0]',
+                                    )}
+                                    onClick={() => toggleMultiFilter('rooms', room)}
+                                >
+                                    {room === 0 ? 'Студия' : getRoomsChipLabel(room)}
+                                </button>
+                            );
+                        })}
                     </div>
 
-                    <div className="space-y-3">
-                        <p className="text-sm font-medium text-white/75">Корпус</p>
+                    <div className="space-y-3 pt-6">
+                        <p className="text-[20px] font-normal text-[#8f909a]">Корпус</p>
 
-                        <div className="flex flex-wrap gap-3">
+                        <div className="flex flex-wrap gap-2">
                             {filterMeta.buildings.map((building) => {
                                 const isActive = filters.building.includes(building);
 
@@ -175,10 +173,10 @@ export default function CatalogFilters({ filters, filterMeta, onFiltersChange, o
                                         key={building}
                                         type="button"
                                         className={cn(
-                                            'min-w-14 rounded-2xl border px-5 py-3 text-sm font-medium transition',
+                                            'min-w-16 rounded-lg border px-6 py-4 text-[18px] font-normal transition',
                                             isActive
-                                                ? 'border-[#d6a07b] bg-[#d6a07b] text-[#1b3048]'
-                                                : 'border-white/10 bg-[#16283d] text-white hover:border-white/25 hover:bg-[#1b3048]',
+                                                ? 'border-[#456bf3] bg-[#456bf3] text-white'
+                                                : 'border-[#eaebef] bg-[#eceef4] text-[#5f6170] hover:border-[#d6dae4] hover:bg-[#e7e9f0]',
                                         )}
                                         onClick={() => toggleMultiFilter('building', building)}
                                     >
@@ -188,52 +186,107 @@ export default function CatalogFilters({ filters, filterMeta, onFiltersChange, o
                             })}
                         </div>
                     </div>
-
-                    <div className="flex flex-wrap gap-3">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            className="h-12 rounded-full border-white/25 bg-transparent px-6 text-white hover:bg-white hover:text-[#1b3048]"
-                            onClick={onReset}
-                        >
-                            <RotateCcw className="size-4" />
-                            Сбросить
-                        </Button>
-                    </div>
                 </div>
 
                 <CatalogRangeFilter
-                    label="Стоимость"
+                    label="Стоимость, руб"
                     min={filterMeta.minPrice}
                     max={filterMeta.maxPrice}
                     step={100000}
                     value={priceRange}
-                    formatValue={(value) => formatPrice(Math.round(value))}
+                    formatValue={(value) => formatPrice(Math.round(value)).replace(' ₽', '')}
                     onValueChange={setPriceRange}
                 />
 
-                <div className="space-y-8">
-                    <CatalogRangeFilter
-                        label="Площадь"
-                        min={filterMeta.minArea}
-                        max={filterMeta.maxArea}
-                        step={0.1}
-                        value={areaRange}
-                        formatValue={(value) => formatArea(Number(value.toFixed(1)))}
-                        onValueChange={setAreaRange}
-                    />
+                <CatalogRangeFilter
+                    label="Площадь, м2"
+                    min={filterMeta.minArea}
+                    max={filterMeta.maxArea}
+                    step={0.1}
+                    value={areaRange}
+                    formatValue={(value) => formatArea(Number(value.toFixed(1))).replace(' м²', '')}
+                    onValueChange={setAreaRange}
+                />
 
-                    <CatalogRangeFilter
-                        label="Этаж"
-                        min={filterMeta.minFloor}
-                        max={filterMeta.maxFloor}
-                        step={1}
-                        value={floorRange}
-                        formatValue={(value) => String(Math.round(value))}
-                        onValueChange={setFloorRange}
-                    />
+                <CatalogRangeFilter
+                    label="Этаж"
+                    min={filterMeta.minFloor}
+                    max={filterMeta.maxFloor}
+                    step={1}
+                    value={floorRange}
+                    formatValue={(value) => String(Math.round(value))}
+                    onValueChange={setFloorRange}
+                />
+            </div>
+
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap gap-3">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-auto rounded-lg bg-[#456bf3] px-7 py-4 text-[18px] font-normal text-white hover:bg-[#3558db]"
+                    >
+                        Квартиры месяца
+                    </Button>
+
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-auto rounded-lg bg-[#eceef4] px-7 py-4 text-[18px] font-normal text-[#5f6170] hover:bg-[#e6e9f0]"
+                    >
+                        Европланировка
+                    </Button>
+
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-auto rounded-lg bg-[#eceef4] px-7 py-4 text-[18px] font-normal text-[#5f6170] hover:bg-[#e6e9f0]"
+                    >
+                        Мастер-спальня
+                    </Button>
+
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-auto rounded-lg bg-[#eceef4] px-7 py-4 text-[18px] font-normal text-[#5f6170] hover:bg-[#e6e9f0]"
+                    >
+                        Угловое остекление
+                    </Button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4 lg:gap-8">
+                    <button type="button" className="text-[20px] font-normal text-[#5d7af5] transition hover:text-[#3f67f4]">
+                        Смотреть {flatsCountText(filters, filterMeta)} объектов
+                    </button>
+
+                    <button
+                        type="button"
+                        className="inline-flex items-center gap-2 text-[18px] font-normal text-[#a0a2ad] transition hover:text-[#7a7c87]"
+                        onClick={onReset}
+                    >
+                        Сбросить фильтры
+                        <X className="size-4" />
+                    </button>
                 </div>
             </div>
         </section>
     );
+}
+
+function flatsCountText(filters: CatalogFilters, filterMeta: CatalogFilterMeta): number {
+    const hasFilters =
+        filters.rooms.length > 0 ||
+        filters.building.length > 0 ||
+        filters.priceFrom !== null ||
+        filters.priceTo !== null ||
+        filters.areaFrom !== null ||
+        filters.areaTo !== null ||
+        filters.floorFrom !== null ||
+        filters.floorTo !== null;
+
+    if (hasFilters) {
+        return 0;
+    }
+
+    return filterMeta.rooms.length + filterMeta.buildings.length;
 }

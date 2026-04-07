@@ -17,7 +17,7 @@ const items: Array<{ key: CatalogSortBy; label: string }> = [
 
 export default function CatalogSortLinks({ sortBy, sortDirection, onChange }: CatalogSortLinksProps) {
     return (
-        <div className="flex flex-wrap items-center gap-3 text-sm text-white/60">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3 text-[18px] text-[#8f909a]">
             <span>Сортировать по</span>
 
             {items.map((item) => {
@@ -28,8 +28,8 @@ export default function CatalogSortLinks({ sortBy, sortDirection, onChange }: Ca
                         key={item.key}
                         type="button"
                         className={cn(
-                            'inline-flex items-center gap-1.5 rounded-full px-1 py-1 transition',
-                            isActive ? 'text-[#d6a07b]' : 'text-white/70 hover:text-white',
+                            'inline-flex items-center gap-1.5 rounded-full transition',
+                            isActive ? 'text-[#456bf3]' : 'text-[#7d7f8a] hover:text-[#1A2431]',
                         )}
                         onClick={() => onChange(item.key)}
                     >
