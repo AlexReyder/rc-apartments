@@ -7,6 +7,7 @@ use App\Http\Controllers\Apartments\ApartmentController;
 use App\Http\Controllers\Panorama\PanoramaController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
+use App\Http\Controllers\Admin\IntegrationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -57,6 +58,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::patch('/flats/{flat}/sold', [FlatController::class, 'markSold'])->name('flats.markSold');
     Route::delete('/flats/{flat}', [FlatController::class, 'destroy'])->name('flats.destroy');
     Route::delete('/flats', [FlatController::class, 'destroyAll'])->name('flats.destroyAll');
+
+    Route::middleware('superadmin')->group(function () {
+    Route::get('/integration', [IntegrationController::class, 'index'])->name('integration.index');
+});
 });
 
 require __DIR__.'/auth.php';
